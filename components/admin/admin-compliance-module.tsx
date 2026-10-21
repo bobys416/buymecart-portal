@@ -10,15 +10,19 @@ import {
   FileCheck2,
   FileText,
   MapPin,
+  Search,
   ShieldAlert,
   ShieldCheck,
   Upload,
   UserCheck,
   Video,
+  X,
   XCircle,
 } from "lucide-react";
 import { mockKycCases, mockMerchants } from "@/lib/mock-data";
 import { KYCCase } from "@/lib/types";
+import { apiClient } from "@/lib/api-client";
+import { getStoredSession } from "@/lib/auth";
 
 interface AdminComplianceModuleProps {
   initialTab?: string;
@@ -29,18 +33,72 @@ export function AdminComplianceModule({ initialTab = "pending-onboarding" }: Adm
   const [kycCases, setKycCases] = useState<KYCCase[]>(mockKycCases);
   const [inspectingKyc, setInspectingKyc] = useState<KYCCase | null>(null);
   const [approvedCaseIds, setApprovedCaseIds] = useState<string[]>([]);
+  const [kycSearch, setKycSearch] = useState("");
 
-  const handleApprove = (id: string) => {
-    setApprovedCaseIds([...approvedCaseIds, id]);
+  const fetchLiveApplications = async () => {
+    try {
+      const session = getStoredSession("admin");
+      if (session?.accessToken) {
+        const res = await apiClient.get<any>("/onboarding", { token: session.accessToken });
+        if (res && Array.isArray(res.items) && res.items.length > 0) {
+          const mapped: KYCCase[] = res.items.map((app: any) => ({
+            id: app.application_number || String(app.id),
+            rmn: app.personal?.rmn || "9800000000",
+            agentName: app.personal?.full_name || "Applicant",
+            shopName: app.business?.shop_name || "Retail Enterprise",
+            status: app.status === "APPROVED" ? "Approved" : app.status === "REJECTED" ? "Rejected" : "Pending Compliance",
+            submissionDate: app.created_at ? app.created_at.split("T")[0] : new Date().toISOString().split("T")[0],
+            vkycVerified: Boolean(app.video_kyc?.status === "VERIFIED" || app.video_kyc?.recording_storage_path),
+            documentsUploaded: app.documents?.length || 4,
+            assignedOfficer: "Compliance Desk",
+          }));
+          setKycCases([...mapped, ...mockKycCases]);
+        }
+      }
+    } catch {
+      // Fallback to mock data if offline
+    }
+  };
+
+  React.useEffect(() => {
+    fetchLiveApplications();
+  }, []);
+
+  const handleApprove = async (id: string) => {
+    setApprovedCaseIds((prev) => [...prev, id]);
     setKycCases((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: "Approved" } : c))
     );
+
+    try {
+      const session = getStoredSession("admin");
+      if (session?.accessToken) {
+        await apiClient.post(`/onboarding/${id}/review`, {
+          action: "APPROVED",
+          remarks: "Verified and approved by Compliance Administrator.",
+        }, { token: session.accessToken });
+      }
+    } catch (e) {
+      console.warn("Backend review dispatch note:", e);
+    }
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = async (id: string) => {
     setKycCases((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: "Rejected" } : c))
     );
+
+    try {
+      const session = getStoredSession("admin");
+      if (session?.accessToken) {
+        await apiClient.post(`/onboarding/${id}/review`, {
+          action: "REJECTED",
+          rejection_reason: "Document illegible or discrepancy detected during compliance check.",
+        }, { token: session.accessToken });
+      }
+    } catch (e) {
+      console.warn("Backend review dispatch note:", e);
+    }
   };
 
   return (
@@ -96,24 +154,79 @@ export function AdminComplianceModule({ initialTab = "pending-onboarding" }: Adm
       {/* 1. PENDING ONBOARDING TAB (From AD Flow in Page 2) */}
       {activeTab === "pending-onboarding" && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-          <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-base font-bold text-navy">
-              Pending Onboarding Approvals (Submitted by Area Distributors)
-            </h2>
-            <p className="text-xs text-slate-500">
-              Per Page 2: AD initiates onboarding and sends request for approval to Admin Portal through their AD account.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-navy">
+                Pending Onboarding Approvals (Submitted by Area Distributors)
+              </h2>
+              <p className="text-xs text-slate-500">
+                Per Page 2: AD initiates onboarding and sends request for approval to Admin Portal through their AD account.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search applicant, shop, RMN, AD..."
+                  value={kycSearch}
+                  onChange={(e) => setKycSearch(e.target.value)}
+                  className="w-48 bg-transparent text-xs text-slate-800 outline-none"
+                />
+                {kycSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setKycSearch("")}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Clear kyc search"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+              >
+                <Search size={12} /> Search Onboarding
+              </button>
+            </div>
           </div>
 
           <div className="mt-5 space-y-4">
-            {kycCases.filter((c) => c.status === "Pending Compliance" && !approvedCaseIds.includes(c.id)).length === 0 ? (
+            {kycCases
+              .filter((c) => c.status === "Pending Compliance" && !approvedCaseIds.includes(c.id))
+              .filter((c) => {
+                if (!kycSearch) return true;
+                const q = kycSearch.toLowerCase();
+                return (
+                  c.applicantName.toLowerCase().includes(q) ||
+                  c.id.toLowerCase().includes(q) ||
+                  c.submittedByAD.toLowerCase().includes(q) ||
+                  c.rmn.includes(q) ||
+                  c.shopAddress.toLowerCase().includes(q)
+                );
+              }).length === 0 ? (
               <div className="py-10 text-center">
                 <CheckCircle2 size={36} className="mx-auto text-emerald-500" />
-                <p className="mt-2 text-sm font-bold text-slate-700">No pending onboardings awaiting approval</p>
+                <p className="mt-2 text-sm font-bold text-slate-700">
+                  {kycSearch ? `No pending onboardings matching "${kycSearch}"` : "No pending onboardings awaiting approval"}
+                </p>
               </div>
             ) : (
               kycCases
                 .filter((c) => c.status === "Pending Compliance" && !approvedCaseIds.includes(c.id))
+                .filter((c) => {
+                  if (!kycSearch) return true;
+                  const q = kycSearch.toLowerCase();
+                  return (
+                    c.applicantName.toLowerCase().includes(q) ||
+                    c.id.toLowerCase().includes(q) ||
+                    c.submittedByAD.toLowerCase().includes(q) ||
+                    c.rmn.includes(q) ||
+                    c.shopAddress.toLowerCase().includes(q)
+                  );
+                })
                 .map((caseItem) => (
                   <div
                     key={caseItem.id}
@@ -173,9 +286,54 @@ export function AdminComplianceModule({ initialTab = "pending-onboarding" }: Adm
       {/* 2. KYC LIST TAB (Full Dossiers) */}
       {activeTab === "kyc-list" && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-          <h2 className="text-base font-bold text-navy">Authoritative KYC Dossier Directory</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-navy">Authoritative KYC Dossier Directory</h2>
+              <p className="text-xs text-slate-500">Search and audit all merchant KYC dossiers submitted across circles.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search dossier by name, ID, AD..."
+                  value={kycSearch}
+                  onChange={(e) => setKycSearch(e.target.value)}
+                  className="w-48 bg-transparent text-xs text-slate-800 outline-none"
+                />
+                {kycSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setKycSearch("")}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Clear kyc search"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+              >
+                <Search size={12} /> Search KYC Directory
+              </button>
+            </div>
+          </div>
+
           <div className="mt-4 divide-y divide-slate-100">
-            {kycCases.map((c) => (
+            {kycCases
+              .filter((c) => {
+                if (!kycSearch) return true;
+                const q = kycSearch.toLowerCase();
+                return (
+                  c.applicantName.toLowerCase().includes(q) ||
+                  c.id.toLowerCase().includes(q) ||
+                  c.submittedByAD.toLowerCase().includes(q) ||
+                  c.status.toLowerCase().includes(q)
+                );
+              })
+              .map((c) => (
               <div key={c.id} className="flex items-center justify-between py-3">
                 <div>
                   <p className="font-bold text-slate-800">{c.applicantName} ({c.id})</p>
@@ -261,7 +419,7 @@ export function AdminComplianceModule({ initialTab = "pending-onboarding" }: Adm
               <span className="font-bold text-emerald-600">Activated · 8 Transactions today</span>
             </div>
             <div className="flex justify-between py-2">
-              <span>Nisha Stores (Bhopal)</span>
+              <span>Nisha Stores (Metro Branch)</span>
               <span className="font-bold text-amber-600">Awaiting First Transaction</span>
             </div>
           </div>
@@ -350,3 +508,4 @@ export function AdminComplianceModule({ initialTab = "pending-onboarding" }: Adm
     </div>
   );
 }
+

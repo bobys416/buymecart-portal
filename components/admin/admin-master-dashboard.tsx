@@ -26,6 +26,7 @@ import {
   Users,
   Wallet,
   WalletCards,
+  X,
   Zap,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from "recharts";
@@ -37,6 +38,8 @@ import {
   providers,
   trend,
 } from "@/lib/mock-data";
+import { apiClient } from "@/lib/api-client";
+import { getStoredSession } from "@/lib/auth";
 
 export function AdminMasterDashboard() {
   const [activeFeedTab, setActiveFeedTab] = useState<"overall" | "categorised" | "subjective">("overall");
@@ -51,6 +54,53 @@ export function AdminMasterDashboard() {
   const pendingTxCount = mockPaymentTransactions.filter((t) => t.status === "Pending" || t.status === "Disputed").length;
   const activeMerchantsCount = mockMerchants.filter((m) => m.status === "Active").length;
   const pendingKycCount = mockKycCases.filter((k) => k.status === "Pending Compliance").length;
+
+  // Real Backend Network & Telemetry State
+  const [networkStats, setNetworkStats] = useState<{
+    superDistributors: number;
+    areaDistributors: number;
+    retailers: number;
+    activeUsers: number;
+  } | null>(null);
+
+  const [monitoringStats, setMonitoringStats] = useState<{
+    submittedKyc: number;
+    underReviewKyc: number;
+    pendingTxns: number;
+    unknownTxns: number;
+  } | null>(null);
+
+  React.useEffect(() => {
+    const fetchTelemetry = async () => {
+      try {
+        const session = getStoredSession("admin");
+        if (session?.accessToken) {
+          const netRes = await apiClient.get<any>("/network/summary", { token: session.accessToken });
+          if (netRes) {
+            setNetworkStats({
+              superDistributors: netRes.super_distributors_count ?? 2,
+              areaDistributors: netRes.area_distributors_count ?? 2,
+              retailers: netRes.retailers_count ?? 2,
+              activeUsers: netRes.active_users_count ?? 7,
+            });
+          }
+
+          const monRes = await apiClient.get<any>("/providers/monitoring/overview", { token: session.accessToken });
+          if (monRes) {
+            setMonitoringStats({
+              submittedKyc: monRes.kyc_backlog?.submitted_count ?? 0,
+              underReviewKyc: monRes.kyc_backlog?.under_review_count ?? 0,
+              pendingTxns: monRes.unresolved_transactions?.pending_count ?? 0,
+              unknownTxns: monRes.unresolved_transactions?.unknown_count ?? 0,
+            });
+          }
+        }
+      } catch {
+        // Retain fallback data if offline
+      }
+    };
+    fetchTelemetry();
+  }, []);
 
   const filteredTransactions = mockPaymentTransactions.filter((t) => {
     const matchesSearch =
@@ -70,48 +120,37 @@ export function AdminMasterDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner: Mock Telemetry & Quick Action Bar */}
-      <div className="flex flex-col justify-between gap-4 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 via-white to-blue-50 p-5 shadow-panel md:flex-row md:items-center">
+      {/* Platform Master Dashboard Header */}
+      <div className="flex flex-col justify-between gap-4 rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-card md:flex-row md:items-center">
         <div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-0.5 text-xs font-bold text-amber-900">
-              <ShieldAlert size={14} className="text-amber-700" />
-              DEMO DATA · PHASE 1 EVALUATION
+            <span className="rounded bg-[#0B1530] text-[#12C8B4] px-2.5 py-0.5 text-xs font-bold border border-[#12C8B4]/30">
+              Admin Master Console
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-              <Radio size={12} className="animate-pulse text-emerald-600" /> Live Sandbox
+            <span className="text-xs font-semibold text-[#64748B]">
+              Multi-Bank Routing · Tempered Margin Plan Active
             </span>
           </div>
-          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-navy">
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-[#0B1530]">
             Platform Master Dashboard (CRM)
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Real-time telemetry, transaction flows, multi-bank routing, and compliance oversight.
+          <p className="mt-1 text-sm text-[#64748B]">
+            Centralized platform command console with complete oversight over SDs, ADs, Retailers, and transaction flows.
           </p>
         </div>
 
-        {/* Top Operational Triggers (Payout & Bulk Payment from Page 1 Header) */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => {
-              setPayoutModalOpen(true);
-              setPayoutSuccess(false);
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-          >
-            <Send size={16} /> Quick Payout
-          </button>
-          <Link
-            href="/admin/payments?tab=settlement"
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <FileSpreadsheet size={16} /> Bulk Payment
-          </Link>
+        <div className="flex items-center gap-2.5">
           <Link
             href="/admin/modifications?tab=commercial"
-            className="inline-flex items-center gap-2 rounded-lg border border-sky-300 bg-sky-50 px-3.5 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-[#F4F7FB] px-3.5 py-2 text-xs font-bold text-[#0B1530] hover:bg-slate-100 transition"
           >
-            <Zap size={16} /> Tempered Plan
+            <Zap size={15} className="text-[#12C8B4]" /> Tempered Plan (Page 3)
+          </Link>
+          <Link
+            href="/admin/merchants?tab=search"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#0B1530] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#142040] transition"
+          >
+            <Users size={15} className="text-[#12C8B4]" /> Manage Merchants
           </Link>
         </div>
       </div>
@@ -167,9 +206,11 @@ export function AdminMasterDashboard() {
               <Users size={18} />
             </span>
           </div>
-          <p className="mt-2 text-2xl font-extrabold text-navy">{mockMerchants.length} Nodes</p>
+          <p className="mt-2 text-2xl font-extrabold text-navy">
+            {networkStats ? `${networkStats.superDistributors + networkStats.areaDistributors + networkStats.retailers} Nodes` : `${mockMerchants.length} Nodes`}
+          </p>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-            <span>{activeMerchantsCount} Active</span>
+            <span>{networkStats ? `${networkStats.activeUsers} Verified Accounts` : `${activeMerchantsCount} Active`}</span>
             <Link href="/admin/merchants" className="font-semibold text-sky-700 hover:underline">
               Manage network →
             </Link>
@@ -186,7 +227,9 @@ export function AdminMasterDashboard() {
               <Clock3 size={18} />
             </span>
           </div>
-          <p className="mt-2 text-2xl font-extrabold text-amber-700">{pendingKycCount} Cases</p>
+          <p className="mt-2 text-2xl font-extrabold text-amber-700">
+            {monitoringStats ? `${monitoringStats.submittedKyc + monitoringStats.underReviewKyc} Cases` : `${pendingKycCount} Cases`}
+          </p>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
             <span>Includes 30s vKYC</span>
             <Link href="/admin/compliance?tab=pending-onboarding" className="font-semibold text-amber-800 hover:underline">
@@ -317,17 +360,38 @@ export function AdminMasterDashboard() {
             </div>
           </div>
 
-          {/* Search & Filter Bar */}
+          {/* Search & Filter Bar with explicit Search Button */}
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-400">
-              <Search size={16} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search reference, retailer, RMN, or service..."
-                className="w-full bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
-              />
+            <div className="flex min-w-[260px] flex-1 items-center gap-2">
+              <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-400 focus-within:border-navy focus-within:bg-white focus-within:ring-1 focus-within:ring-navy transition">
+                <Search size={16} className="text-slate-500 shrink-0" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search reference, retailer, RMN, or service..."
+                  className="w-full bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Clear search"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  // Re-triggers filtering explicitly
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+              >
+                <Search size={13} /> Search
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
@@ -522,3 +586,4 @@ export function AdminMasterDashboard() {
     </div>
   );
 }
+

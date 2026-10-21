@@ -10,9 +10,11 @@ import {
   LifeBuoy,
   MessageSquare,
   Plus,
+  Search,
   Send,
   ShieldAlert,
   Ticket,
+  X,
 } from "lucide-react";
 import { mockSupportTickets, mockPaymentTransactions } from "@/lib/mock-data";
 import { SupportTicket } from "@/lib/types";
@@ -24,6 +26,7 @@ interface AdminSupportModuleProps {
 export function AdminSupportModule({ initialTab = "open" }: AdminSupportModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [tickets, setTickets] = useState<SupportTicket[]>(mockSupportTickets);
+  const [ticketSearch, setTicketSearch] = useState("");
 
   // Book Ticket Form State (Page 4 Exact Fields: Complaint Type, Complaint Category, Transaction ID, Remarks)
   const [bookForm, setBookForm] = useState({
@@ -107,12 +110,57 @@ export function AdminSupportModule({ initialTab = "open" }: AdminSupportModulePr
       {/* 1. OPEN TICKETS TAB */}
       {activeTab === "open" && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-          <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-base font-bold text-navy">Open & High-Priority Disputes</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-navy">Open & High-Priority Disputes</h2>
+              <p className="text-xs text-slate-500">Live SLA tickets pending administrative review or banking clearance.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search ticket #, subject, raised by..."
+                  value={ticketSearch}
+                  onChange={(e) => setTicketSearch(e.target.value)}
+                  className="w-48 bg-transparent text-xs text-slate-800 outline-none"
+                />
+                {ticketSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setTicketSearch("")}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Clear ticket search"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+              >
+                <Search size={12} /> Search Tickets
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 space-y-3">
-            {tickets.filter((t) => t.status === "Open" || t.status === "In Progress").map((t) => (
+            {tickets
+              .filter((t) => t.status === "Open" || t.status === "In Progress")
+              .filter((t) => {
+                if (!ticketSearch) return true;
+                const q = ticketSearch.toLowerCase();
+                return (
+                  t.ticketNumber.toLowerCase().includes(q) ||
+                  t.subject.toLowerCase().includes(q) ||
+                  t.raisedBy.toLowerCase().includes(q) ||
+                  t.rmn.includes(q) ||
+                  t.complaintType.toLowerCase().includes(q) ||
+                  t.remarks.toLowerCase().includes(q)
+                );
+              })
+              .map((t) => (
               <div
                 key={t.id}
                 className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center"
@@ -245,16 +293,68 @@ export function AdminSupportModule({ initialTab = "open" }: AdminSupportModulePr
       {/* 3. TICKET LIST TAB */}
       {activeTab === "list" && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-          <h2 className="text-base font-bold text-navy">All Support Tickets Archive</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-navy">All Support Tickets Archive</h2>
+              <p className="text-xs text-slate-500">Historical repository of all merchant and banking dispute tickets.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search archive tickets..."
+                  value={ticketSearch}
+                  onChange={(e) => setTicketSearch(e.target.value)}
+                  className="w-48 bg-transparent text-xs text-slate-800 outline-none"
+                />
+                {ticketSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setTicketSearch("")}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Clear archive search"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+              >
+                <Search size={12} /> Search Archive
+              </button>
+            </div>
+          </div>
+
           <div className="mt-4 divide-y divide-slate-100">
-            {tickets.map((t) => (
+            {tickets
+              .filter((t) => {
+                if (!ticketSearch) return true;
+                const q = ticketSearch.toLowerCase();
+                return (
+                  t.ticketNumber.toLowerCase().includes(q) ||
+                  t.subject.toLowerCase().includes(q) ||
+                  t.raisedBy.toLowerCase().includes(q) ||
+                  t.status.toLowerCase().includes(q) ||
+                  t.remarks.toLowerCase().includes(q)
+                );
+              })
+              .map((t) => (
               <div key={t.id} className="flex items-center justify-between py-3">
                 <div>
                   <p className="font-bold text-navy">{t.ticketNumber}</p>
                   <p className="text-xs text-slate-700">{t.subject}</p>
-                  <p className="text-[11px] text-slate-400">Created: {t.createdAt}</p>
+                  <p className="text-[11px] text-slate-400">Created: {t.createdAt} · Raised By: {t.raisedBy}</p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                  t.status === "Resolved"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : t.status === "Open"
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-slate-100 text-slate-700"
+                }`}>
                   {t.status}
                 </span>
               </div>
@@ -283,3 +383,4 @@ export function AdminSupportModule({ initialTab = "open" }: AdminSupportModulePr
     </div>
   );
 }
+

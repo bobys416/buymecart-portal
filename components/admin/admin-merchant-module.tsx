@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   Building2,
@@ -23,9 +24,11 @@ import {
   UserPlus,
   Users,
   Video,
+  X,
 } from "lucide-react";
 import { formatINR, mockKycCases, mockMerchants } from "@/lib/mock-data";
 import { AgentRole, KYCCase, Merchant } from "@/lib/types";
+import { MerchantKycDossier } from "@/components/admin/merchant-kyc-dossier";
 
 interface AdminMerchantModuleProps {
   initialTab?: string;
@@ -38,9 +41,17 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
   const [vkycCase, setVkycCase] = useState<KYCCase | null>(null);
 
   // Search filter state
-  const [searchTerm, setSearchTerm] = useState("");
+  const searchParams = useSearchParams();
+  const qParam = searchParams?.get?.("q") || "";
+  const [searchTerm, setSearchTerm] = useState(qParam);
+  const [viewSearchTerm, setViewSearchTerm] = useState("");
+  const [balanceSearchTerm, setBalanceSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+
+  useEffect(() => {
+    if (qParam) setSearchTerm(qParam);
+  }, [qParam]);
 
   // Create Merchant Form state
   const [createSuccess, setCreateSuccess] = useState(false);
@@ -58,10 +69,6 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
     aadhaarNumber: "",
   });
 
-  // KYC Simulator state
-  const [vkycRecording, setVkycRecording] = useState(false);
-  const [vkycCompleted, setVkycCompleted] = useState(false);
-  const [kycFormSuccess, setKycFormSuccess] = useState(false);
 
   // Password resend confirmation state
   const [passwordSentTo, setPasswordSentTo] = useState<string | null>(null);
@@ -175,23 +182,41 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-panel">
             <h2 className="text-sm font-bold text-navy">Search & Filter Merchant Records</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-slate-400">
-                <Search size={16} />
-                <input
-                  type="text"
-                  placeholder="Search by RMN, Name, Store, or Aadhaar..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full text-xs text-slate-800 outline-none"
-                />
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex min-w-[280px] flex-1 items-center gap-2">
+                <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-400 focus-within:border-navy focus-within:ring-1 focus-within:ring-navy transition">
+                  <Search size={16} className="text-slate-500 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search by RMN, Name, Store, or Aadhaar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full text-xs text-slate-800 outline-none"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      className="text-slate-400 hover:text-slate-600"
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition shrink-0"
+                >
+                  <Search size={13} /> Search Merchant
+                </button>
               </div>
 
-              <div>
+              <div className="w-full sm:w-56">
                 <select
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 p-2 text-xs text-slate-700"
+                  className="w-full rounded-lg border border-slate-300 p-2 text-xs text-slate-700 bg-white"
                 >
                   <option value="All">All Roles (C&F, Master, Dist, Retailer)</option>
                   <option value="C&F">C&F Agent</option>
@@ -201,11 +226,11 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
                 </select>
               </div>
 
-              <div>
+              <div className="w-full sm:w-44">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 p-2 text-xs text-slate-700"
+                  className="w-full rounded-lg border border-slate-300 p-2 text-xs text-slate-700 bg-white"
                 >
                   <option value="All">All Statuses</option>
                   <option value="Active">Active</option>
@@ -455,186 +480,62 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
 
       {/* 3. CREATE MERCHANT KYC TAB (Full 12-Point KYC from Page 3 & Page 4) */}
       {activeTab === "create-kyc" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-          <div className="border-b border-slate-100 pb-3">
-            <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-              Page 3 & 4 KYC Checklist
-            </span>
-            <h2 className="mt-1 text-base font-bold text-navy">
-              12-Point KYC Evidence & 30-Second Video KYC
-            </h2>
-            <p className="text-xs text-slate-500">
-              Collect and verify: Name, Address, Aadhaar/PAN, MSME/Udyam, Dual OTP, Cheque, 30s vKYC, Selfies, Shop Photo, Signature/Thumbs.
-            </p>
-          </div>
-
-          <div className="mt-5 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-            {/* Form Fields */}
-            <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600">Select Target Merchant</label>
-                  <select className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs">
-                    {merchants.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.shopName} ({m.rmn})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600">MSME / Udyam Certificate</label>
-                  <input
-                    type="text"
-                    defaultValue="UDYAM-RJ-14-001928"
-                    className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Uploads grid */}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-dashed border-slate-300 p-3 text-center">
-                  <Upload size={20} className="mx-auto text-slate-400" />
-                  <p className="mt-1 text-xs font-bold text-slate-700">Aadhaar & PAN Copy</p>
-                  <p className="text-[11px] text-slate-400">PDF or JPG (Verified via OCR)</p>
-                  <button type="button" className="mt-2 rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                    Upload File
-                  </button>
-                </div>
-
-                <div className="rounded-lg border border-dashed border-slate-300 p-3 text-center">
-                  <Upload size={20} className="mx-auto text-slate-400" />
-                  <p className="mt-1 text-xs font-bold text-slate-700">Cancelled Cheque / Bank Statement</p>
-                  <p className="text-[11px] text-slate-400">Penny-drop ready</p>
-                  <button type="button" className="mt-2 rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                    Upload File
-                  </button>
-                </div>
-
-                <div className="rounded-lg border border-dashed border-slate-300 p-3 text-center">
-                  <Upload size={20} className="mx-auto text-slate-400" />
-                  <p className="mt-1 text-xs font-bold text-slate-700">Merchant Live Selfie</p>
-                  <p className="text-[11px] text-slate-400">Facial liveness match 99.4%</p>
-                  <button type="button" className="mt-2 rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                    Capture Selfie
-                  </button>
-                </div>
-
-                <div className="rounded-lg border border-dashed border-slate-300 p-3 text-center">
-                  <Upload size={20} className="mx-auto text-slate-400" />
-                  <p className="mt-1 text-xs font-bold text-slate-700">Employee with Merchant Selfie</p>
-                  <p className="text-[11px] text-slate-400">Field staff co-verification</p>
-                  <button type="button" className="mt-2 rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                    Upload Joint Photo
-                  </button>
-                </div>
-              </div>
-
-              {/* Digital Signature & Thumb */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Biometric & Signature Capture</p>
-                    <p className="text-[11px] text-slate-500">
-                      Mantra / Morpho scanner & capacitive signature pad
-                    </p>
-                  </div>
-                  <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                    Captured
-                  </span>
-                </div>
-              </div>
-
-              {kycFormSuccess && (
-                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
-                  <CheckCircle2 size={16} /> KYC Dossier submitted to compliance approval queue.
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setKycFormSuccess(true)}
-                className="w-full rounded-lg bg-navy py-2.5 text-xs font-bold text-white hover:bg-slate-800"
-              >
-                Submit Complete 12-Point Dossier
-              </button>
-            </div>
-
-            {/* 30-Second Video KYC Simulator Box (Page 3 Item) */}
-            <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-5">
-              <div className="flex items-center gap-2 text-sky-900">
-                <Video size={18} />
-                <h3 className="text-sm font-bold">30-Second Video KYC (vKYC)</h3>
-              </div>
-              <p className="mt-1 text-xs text-slate-600 leading-relaxed">
-                As documented in Page 3: The applicant reads a random OTP, displays their PAN card, and confirms shop GPS location within 30 seconds.
-              </p>
-
-              <div className="mt-4 flex aspect-video w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-sky-300 bg-slate-900 text-white">
-                {vkycRecording ? (
-                  <div className="text-center">
-                    <div className="mx-auto h-4 w-4 animate-ping rounded-full bg-rose-500" />
-                    <p className="mt-3 font-mono text-xs text-rose-400">RECORDING... 00:24 / 00:30</p>
-                    <p className="mt-1 text-xs text-slate-300">Prompt: "I am Rajesh Sharma at Jaipur"</p>
-                  </div>
-                ) : vkycCompleted ? (
-                  <div className="p-4 text-center">
-                    <CheckCircle2 size={32} className="mx-auto text-emerald-400" />
-                    <p className="mt-2 text-xs font-bold text-emerald-300">30s Video KYC Recorded</p>
-                    <p className="text-[11px] text-slate-400">Checksum: SHA-256 (32.4 seconds)</p>
-                  </div>
-                ) : (
-                  <div className="p-4 text-center">
-                    <Video size={32} className="mx-auto text-slate-500" />
-                    <p className="mt-2 text-xs font-semibold text-slate-300">Camera Simulator Ready</p>
-                    <p className="text-[11px] text-slate-500">Click below to simulate 30s session</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 flex gap-2">
-                {!vkycCompleted ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVkycRecording(true);
-                      setTimeout(() => {
-                        setVkycRecording(false);
-                        setVkycCompleted(true);
-                      }, 2000);
-                    }}
-                    className="flex-1 rounded-lg bg-sky-600 py-2 text-xs font-bold text-white hover:bg-sky-700"
-                  >
-                    {vkycRecording ? "Recording in progress..." : "Start 30s Video Session"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setVkycCompleted(false)}
-                    className="flex-1 rounded-lg border border-slate-300 bg-white py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                  >
-                    Reset & Retake Video
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <MerchantKycDossier />
       )}
 
       {/* 4. VIEW MERCHANT TAB */}
       {activeTab === "view" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-panel">
-            <h2 className="text-base font-bold text-navy">Active Merchant Registry</h2>
-            <p className="text-xs text-slate-500">
-              Detailed inspection of registered entities with authorized balance and KYC status.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div>
+              <h2 className="text-base font-bold text-navy">Active Merchant Registry</h2>
+              <p className="text-xs text-slate-500">
+                Detailed inspection of registered entities with authorized balance and KYC status.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy transition">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search ID, Name, RMN..."
+                  value={viewSearchTerm}
+                  onChange={(e) => setViewSearchTerm(e.target.value)}
+                  className="w-48 bg-transparent text-xs text-slate-800 outline-none"
+                />
+                {viewSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setViewSearchTerm("")}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Clear search"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition shadow-xs"
+              >
+                <Search size={12} /> Search
+              </button>
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {merchants.map((m) => (
+            {merchants
+              .filter((m) => {
+                if (!viewSearchTerm) return true;
+                const term = viewSearchTerm.toLowerCase();
+                return (
+                  m.id.toLowerCase().includes(term) ||
+                  m.agentName.toLowerCase().includes(term) ||
+                  m.shopName.toLowerCase().includes(term) ||
+                  m.rmn.includes(term)
+                );
+              })
+              .map((m) => (
               <div key={m.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-panel">
                 <div className="flex items-start justify-between">
                   <div>
@@ -754,8 +655,8 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
                 <div className="rounded-lg border border-sky-200 bg-white p-3 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-bold text-slate-800">AD-MP-02: Sunil Verma</p>
-                      <p className="text-xs text-slate-500">Bhopal Region · 7 Retailers Assigned</p>
+                      <p className="font-bold text-slate-800">AD-ZONE-01: Sunil Verma</p>
+                      <p className="text-xs text-slate-500">Assigned Territory (Zone-01) · 7 Retailers Assigned</p>
                     </div>
                     <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
                       Kit Handover Complete
@@ -874,11 +775,41 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
       {/* 8. DAILY MERCHANTS BALANCE TAB (Page 4 Submenu) */}
       {activeTab === "balances" && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-          <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-base font-bold text-navy">Daily Merchants Balance Ledger (Page 4)</h2>
-            <p className="text-xs text-slate-500">
-              Authoritative daily ledger reconciliation showing opening balance, daily credits, daily debits, and closing balance.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-navy">Daily Merchants Balance Ledger (Page 4)</h2>
+              <p className="text-xs text-slate-500">
+                Authoritative daily ledger reconciliation showing opening balance, daily credits, daily debits, and closing balance.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy transition">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search Merchant or RMN..."
+                  value={balanceSearchTerm}
+                  onChange={(e) => setBalanceSearchTerm(e.target.value)}
+                  className="w-44 bg-transparent text-xs text-slate-800 outline-none"
+                />
+                {balanceSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setBalanceSearchTerm("")}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Clear search"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition shadow-xs"
+              >
+                <Search size={12} /> Search
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 overflow-x-auto">
@@ -894,7 +825,17 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {merchants.map((m) => (
+                {merchants
+                  .filter((m) => {
+                    if (!balanceSearchTerm) return true;
+                    const term = balanceSearchTerm.toLowerCase();
+                    return (
+                      m.shopName.toLowerCase().includes(term) ||
+                      m.rmn.includes(term) ||
+                      m.agentName.toLowerCase().includes(term)
+                    );
+                  })
+                  .map((m) => (
                   <tr key={m.id} className="hover:bg-slate-50">
                     <td className="px-5 py-3.5">
                       <p className="font-bold text-navy">{m.shopName}</p>
@@ -984,3 +925,4 @@ export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModu
     </div>
   );
 }
+

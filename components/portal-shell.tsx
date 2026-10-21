@@ -1,28 +1,36 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   Bell,
+  Bot,
+  Brain,
   Building2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleHelp,
   CreditCard,
-  FileSpreadsheet,
   FileText,
   Gauge,
+  KeyRound,
   Landmark,
   Layers,
   Lock,
+  LogOut,
+  MapPin,
   Menu,
+  Network,
+  PackageCheck,
   Receipt,
-  Send,
-  Settings,
+  Search,
+  Shield,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   TrendingUp,
   UserCheck,
   Users,
@@ -31,8 +39,22 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import {
+  clearStoredSession,
+  getStoredSession,
+  ROLE_DISPLAY_NAMES,
+  ROLE_HIERARCHY,
+  UserSession,
+  validatePortalAccess,
+} from "@/lib/auth";
+import { FloatingAiChatbot } from "@/components/ai/floating-ai-chatbot";
 
-type Portal = "admin" | "distributor" | "retailer";
+export type Portal =
+  | "admin"
+  | "super-distributor"
+  | "area-distributor"
+  | "retailer"
+  | "distributor";
 
 interface SubMenuItem {
   label: string;
@@ -46,8 +68,20 @@ interface MenuItem {
   submenus?: SubMenuItem[];
 }
 
+// 1. ADMIN NAVIGATION
 const adminNavigation: MenuItem[] = [
   { title: "Dashboard", slug: "dashboard", icon: Gauge },
+  {
+    title: "Super Distributors",
+    slug: "super-distributors",
+    icon: Building2,
+    submenus: [
+      { label: "Directory & Performance", tab: "directory" },
+      { label: "Create Super Distributor", tab: "create" },
+      { label: "Roles & Limits Governance", tab: "permissions" },
+      { label: "Funds & Commissions", tab: "funds" },
+    ],
+  },
   {
     title: "Merchant",
     slug: "merchants",
@@ -112,7 +146,7 @@ const adminNavigation: MenuItem[] = [
     ],
   },
   {
-    title: "Reports (12 Reports)",
+    title: "Reports",
     slug: "reports",
     icon: FileText,
     submenus: [
@@ -158,273 +192,736 @@ const adminNavigation: MenuItem[] = [
     ],
   },
   { title: "Channel Reports", slug: "channel-reports", icon: TrendingUp },
+  {
+    title: "API Integration & Management",
+    slug: "api-management",
+    icon: Network,
+    submenus: [
+      { label: "A. API Overview", tab: "overview" },
+      { label: "B. API Provider Registry", tab: "providers" },
+      { label: "C. API Connection Configuration", tab: "connections" },
+      { label: "D. API Service Mapping", tab: "service-mapping" },
+      { label: "E. API Testing & Sandbox", tab: "sandbox" },
+      { label: "F. API Product Builder", tab: "products" },
+      { label: "G. Developer & Client Management", tab: "clients" },
+      { label: "H. API Analytics & Billing", tab: "analytics" },
+      { label: "I. API Security & Audit", tab: "security" },
+      { label: "J. API Keys & Services Manager", tab: "key-manager" },
+    ],
+  },
+  {
+    title: "AI Control Centre",
+    slug: "ai-centre",
+    icon: Brain,
+    submenus: [
+      { label: "1. AI Overview & Status", tab: "overview" },
+      { label: "2. Admin AI Copilot", tab: "copilot" },
+      { label: "3. Banking Risk & Fraud", tab: "risk-fraud" },
+      { label: "4. AI Models & Runtime", tab: "models" },
+      { label: "5. Agent Workflows", tab: "workflows" },
+      { label: "6. MCP Servers & Tools", tab: "mcp-tools" },
+      { label: "7. Privileged Approvals", tab: "approvals" },
+      { label: "8. AI Policies & Permissions", tab: "policies" },
+      { label: "9. AI Audit & Observability", tab: "audit-logs" },
+    ],
+  },
 ];
 
-const distributorNavigation: MenuItem[] = [
+// 2. SUPER DISTRIBUTOR NAVIGATION
+const superDistributorNavigation: MenuItem[] = [
   { title: "Dashboard", slug: "dashboard", icon: Gauge },
-  { title: "Onboard Retailer (AD)", slug: "onboarding", icon: UserPlusIcon },
-  { title: "Retailer Network", slug: "network", icon: Users },
-  { title: "Payment Requests", slug: "payments", icon: CreditCard },
-  { title: "Clear Balance Queries", slug: "balance", icon: Wallet },
-  { title: "Commercials & Share", slug: "commercials", icon: Zap },
-  { title: "Support & Escalations", slug: "support", icon: CircleHelp },
+  { title: "Area Distributors (ADs)", slug: "ad-network", icon: Users },
+  { title: "Subordinate Retailers", slug: "retailers", icon: Building2 },
+  { title: "Clear Balance Queries", slug: "balance-queries", icon: Wallet },
+  { title: "Escalate to Admin", slug: "escalations", icon: CircleHelp },
+  { title: "Regional Commercials", slug: "commercials", icon: Zap },
 ];
 
+// 3. AREA DISTRIBUTOR NAVIGATION
+const areaDistributorNavigation: MenuItem[] = [
+  { title: "Dashboard", slug: "dashboard", icon: Gauge },
+  { title: "Retailer Onboarding", slug: "onboarding", icon: Users },
+  { title: "Process KYC & vKYC", slug: "kyc-flow", icon: Video },
+  { title: "Retailer Kit Handovers", slug: "kits", icon: PackageCheck },
+  { title: "Retailer Network", slug: "network", icon: MapPin },
+  { title: "Payment Queries", slug: "queries", icon: CircleHelp },
+];
+
+// 4. RETAILER NAVIGATION
 const retailerNavigation: MenuItem[] = [
   { title: "Dashboard", slug: "dashboard", icon: Gauge },
   { title: "Start Payment", slug: "payments", icon: CreditCard },
   { title: "Enabled Services", slug: "services", icon: Landmark },
-  { title: "Receipts (No Logo)", slug: "receipts", icon: Receipt },
+  { title: "Receipts", slug: "receipts", icon: Receipt },
   { title: "Transaction History", slug: "transactions", icon: FileText },
   { title: "Support Tickets", slug: "support", icon: CircleHelp },
   { title: "Account & Security", slug: "security", icon: ShieldCheck },
 ];
 
-function UserPlusIcon(props: any) {
-  return <Users {...props} />;
-}
-
-export function PortalShell({ portal, children }: { portal: Portal; children: React.ReactNode }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+export function PortalShell({
+  portal,
+  children,
+}: {
+  portal: Portal;
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab") || "";
 
-  // Dropdown open states for modules
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [session, setSession] = useState<UserSession | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Dropdown open states for accordion items
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({
+    "super-distributors": true,
     merchants: true,
-    payments: true,
+    payments: false,
     "managed-products": false,
     compliance: false,
     reports: false,
     modifications: false,
     support: false,
+    "api-management": false,
+    "ai-centre": false,
   });
+
+  // Resolve session and sidebar preferences
+  useEffect(() => {
+    const activeSession = getStoredSession(portal);
+    setSession(activeSession);
+    setAuthChecked(true);
+
+    try {
+      const savedCollapse = localStorage.getItem("buymecart_sidebar_collapsed");
+      if (savedCollapse === "true") {
+        setSidebarCollapsed(true);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [portal]);
+
+  // Mobile drawer Escape key listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMenuOpen]);
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("buymecart_sidebar_collapsed", String(next));
+      } catch {
+        // Ignore
+      }
+      return next;
+    });
+  };
 
   const toggleDropdown = (slug: string) => {
     setOpenDropdowns((prev) => ({ ...prev, [slug]: !prev[slug] }));
   };
 
-  const currentNav =
-    portal === "admin"
-      ? adminNavigation
-      : portal === "distributor"
-      ? distributorNavigation
-      : retailerNavigation;
+  const handleGlobalSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!globalSearch.trim()) return;
+    const q = encodeURIComponent(globalSearch.trim());
+    if (portal === "admin") {
+      router.push(`/admin/merchants?tab=search&q=${q}`);
+    } else if (portal === "super-distributor") {
+      router.push(`/super-distributor/retailers?q=${q}`);
+    } else if (portal === "area-distributor") {
+      router.push(`/area-distributor/network?q=${q}`);
+    } else {
+      router.push(`/retailer/transactions?q=${q}`);
+    }
+  };
+
+  const handleLogout = () => {
+    clearStoredSession(portal);
+    router.push(`/${portal}/login`);
+  };
+
+  // Determine current navigation based on portal
+  let currentNav: MenuItem[] = adminNavigation;
+  if (portal === "super-distributor") {
+    currentNav = superDistributorNavigation;
+  } else if (portal === "area-distributor") {
+    currentNav = areaDistributorNavigation;
+  } else if (portal === "retailer") {
+    currentNav = retailerNavigation;
+  } else if (portal === "distributor") {
+    currentNav =
+      session?.role === "sd" ? superDistributorNavigation : areaDistributorNavigation;
+  }
 
   const portalDetails = {
     admin: {
       name: "Admin Master Portal",
-      roleBadge: "CRM Platform Root",
-      accent: "bg-sky-600",
+      roleBadge: "Root Administrator",
       host: "admin.buymecart.org",
+      badgeColor: "bg-[#101C32] text-[#16B8A6] border border-[#16B8A6]/30",
     },
-    distributor: {
-      name: "Distributor Portal",
-      roleBadge: "Shared SD / AD",
-      accent: "bg-indigo-600",
-      host: "distributor.buymecart.org",
+    "super-distributor": {
+      name: "Super Distributor Portal",
+      roleBadge: "Super Distributor (SD)",
+      host: "sd.buymecart.org",
+      badgeColor: "bg-[#101C32] text-[#16B8A6] border border-[#16B8A6]/30",
+    },
+    "area-distributor": {
+      name: "Area Distributor Portal",
+      roleBadge: "Area Distributor (AD)",
+      host: "ad.buymecart.org",
+      badgeColor: "bg-[#101C32] text-[#16B8A6] border border-[#16B8A6]/30",
     },
     retailer: {
       name: "Retailer Portal",
       roleBadge: "Merchant Operator",
-      accent: "bg-emerald-600",
       host: "retailer.buymecart.org",
+      badgeColor: "bg-[#101C32] text-[#16B8A6] border border-[#16B8A6]/30",
+    },
+    distributor: {
+      name: "Distributor Portal",
+      roleBadge: session?.role === "sd" ? "Super Distributor (SD)" : "Area Distributor (AD)",
+      host: "distributor.buymecart.org",
+      badgeColor: "bg-[#101C32] text-[#16B8A6] border border-[#16B8A6]/30",
     },
   }[portal];
 
+  const userInitials = session?.name
+    ? session.name
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "BM";
+
+  // Derive active breadcrumb parts
+  // Derive active breadcrumb parts
+  const pathParts = pathname.split("/").filter(Boolean);
+  const activeSectionSlug = pathParts[1] || "dashboard";
+  const activeMenuItem = currentNav.find((m) => m.slug === activeSectionSlug);
+  const activeSubItem = activeMenuItem?.submenus?.find((s) => s.tab === currentTab);
+
+  // Check role-based route guard
+  const authValidation = authChecked ? validatePortalAccess(session, portal) : { authorized: false };
+
+  // =========================================================
+  // 1. MINIMAL LOADING / SPLASH STATE (Prevent Content Flash)
+  // =========================================================
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-[#101C32] text-white flex flex-col justify-center items-center px-4">
+        <div className="flex flex-col items-center space-y-4 max-w-sm text-center">
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-[#16B8A6] to-sky-400 flex items-center justify-center shadow-lg shadow-teal-500/30 animate-pulse">
+            <Lock size={22} className="text-[#101C32]" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold tracking-tight text-white">
+              BUYMECART · IBNK SECURITY
+            </h2>
+            <p className="text-xs text-teal-300 font-mono mt-1">
+              Verifying session identity & role authorizations...
+            </p>
+          </div>
+          <div className="w-48 h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div className="w-1/2 h-full bg-[#16B8A6] rounded-full animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================
+  // 2. UNAUTHENTICATED REDIRECT STATE (No Valid Session)
+  // =========================================================
+  if (authChecked && !session) {
+    const loginPath = `/${portal}/login`;
+    const targetUrl = `${pathname}${currentTab ? `?tab=${currentTab}` : ""}`;
+    const redirectUrl = `${loginPath}?redirect=${encodeURIComponent(targetUrl)}`;
+
+    if (typeof window !== "undefined") {
+      router.replace(redirectUrl);
+    }
+
+    return (
+      <div className="min-h-screen bg-[#0B132B] text-white flex flex-col justify-center items-center px-4">
+        <div className="max-w-md w-full rounded-2xl border border-slate-800 bg-[#101C32] p-8 shadow-2xl text-center space-y-4">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-teal-500/10 text-[#16B8A6] border border-teal-500/30">
+            <KeyRound size={28} />
+          </div>
+          <h2 className="text-xl font-bold text-white">Authentication Required</h2>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Protected content on the {portalDetails.name} requires verified credentials. Redirecting to the secure sign-in portal...
+          </p>
+          <div className="pt-2">
+            <Link
+              href={redirectUrl}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#16B8A6] px-5 py-2.5 text-xs font-bold text-[#101C32] hover:bg-teal-400 transition"
+            >
+              Sign In to {portalDetails.roleBadge}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================
+  // 3. UNAUTHORIZED ROLE SCREEN (Role-Aware Security Boundary)
+  // =========================================================
+  if (authChecked && !authValidation.authorized) {
+    const userRoleDisplay = session?.role
+      ? ROLE_DISPLAY_NAMES[session.role]
+      : "Unauthenticated";
+    const userPortal = session?.portal || "retailer";
+
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] text-[#101C32] flex flex-col justify-center items-center px-4">
+        <div className="w-full max-w-lg rounded-2xl border border-rose-200 bg-white p-8 shadow-xl text-center space-y-4">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-200">
+            <ShieldAlert size={36} />
+          </div>
+
+          <div>
+            <span className="rounded bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800 uppercase tracking-wide">
+              Security Boundary Restriction
+            </span>
+            <h1 className="mt-3 text-xl font-black text-[#101C32]">
+              Access Denied: Role Authorization Required
+            </h1>
+            <p className="mt-2 text-xs text-[#64748B] leading-relaxed">
+              {authValidation.reason}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F5F7FA] p-4 text-xs text-left space-y-2">
+            <p className="font-bold text-[#101C32]">Active Session Identity:</p>
+            <div className="grid grid-cols-2 gap-1 text-[11px] font-mono text-[#64748B]">
+              <span>Name: <strong className="text-[#101C32]">{session?.name}</strong></span>
+              <span>Active Role: <strong className="text-rose-700">{userRoleDisplay}</strong></span>
+              <span>Scope: <strong className="text-[#101C32]">{session?.orgScope}</strong></span>
+              <span>Attempted Portal: <strong className="text-[#101C32]">{portal}</strong></span>
+            </div>
+            <div className="mt-2 border-t border-[#E2E8F0] pt-2 text-[10px] text-[#64748B]">
+              <strong>Enforced Hierarchy:</strong> Admin → Super Distributor → Area Distributor → Retailer. Client-side role elevation is strictly prohibited.
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+            <Link
+              href={`/${userPortal}/dashboard`}
+              className="rounded-xl bg-[#101C32] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#1a2d52] transition"
+            >
+              Return to Authorized {userRoleDisplay} Portal
+            </Link>
+            <Link
+              href={`/${portal}/login`}
+              className="rounded-xl border border-[#E2E8F0] bg-white px-5 py-2.5 text-xs font-bold text-[#101C32] hover:bg-[#F5F7FA] transition"
+            >
+              Sign In as {portalDetails.roleBadge}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#F5F7FB] text-[#152238]">
-      {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:px-6 shadow-sm">
+    <div className="min-h-screen bg-[#F5F7FA] text-[#101C32] flex flex-col antialiased">
+      {/* ========================================================= */}
+      {/* TOP BAR / RESPONSIVE HEADER                               */}
+      {/* ========================================================= */}
+      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-[#E2E8F0] bg-white px-4 lg:px-6 shadow-xs">
+        {/* Left: Brand & Portal Identifier */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
-            aria-label="Toggle navigation"
+            className="rounded-lg p-2 text-[#64748B] hover:bg-[#F5F7FA] hover:text-[#101C32] lg:hidden transition"
+            aria-label="Toggle navigation drawer"
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
-          <div className="flex items-center gap-2.5">
-            <div className={`grid h-9 w-9 place-items-center rounded-lg ${portalDetails.accent} text-white shadow-sm`}>
+          <Link href={`/${portal}/dashboard`} className="flex items-center gap-2.5">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#101C32] text-[#16B8A6] shadow-sm font-black">
               <Building2 size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold tracking-tight text-navy text-sm">BUYMECART</span>
-                <span className="rounded bg-slate-100 px-1.5 py-0.2 font-mono text-[10px] text-slate-600 font-bold">
+                <span className="font-black tracking-tight text-[#101C32] text-sm">
+                  BUYMECART
+                </span>
+                <span className="hidden sm:inline-block rounded bg-[#F5F7FA] px-1.5 py-0.5 font-mono text-[10px] text-[#64748B] font-bold border border-[#E2E8F0]">
                   {portalDetails.host}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium">{portalDetails.name}</p>
+              <p className="text-xs text-[#64748B] font-medium hidden sm:block">
+                {portalDetails.name}
+              </p>
             </div>
+          </Link>
+
+          {/* Breadcrumb Context */}
+          <div className="hidden xl:flex items-center gap-1.5 pl-4 ml-4 border-l border-[#E2E8F0] text-xs text-[#64748B]">
+            <span className="font-semibold text-[#101C32] capitalize">{portal.replace("-", " ")}</span>
+            <span>/</span>
+            <span className="font-medium">{activeMenuItem?.title || "Dashboard"}</span>
+            {activeSubItem && (
+              <>
+                <span>/</span>
+                <span className="font-bold text-[#16B8A6]">{activeSubItem.label}</span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Center / Action Bar: Top Triggers (Page 1 Header) */}
-        <div className="hidden xl:flex items-center gap-2.5">
-          <Link
-            href="/admin/payments?tab=initiate"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+        {/* Center: Global Search Bar */}
+        <div className="flex-1 max-w-md mx-4 hidden md:block">
+          <form
+            onSubmit={handleGlobalSearch}
+            className="flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F5F7FA] pl-3 pr-1 py-1 focus-within:border-[#16B8A6] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#16B8A6] transition"
           >
-            <Send size={13} className="text-navy" /> Payout
-          </Link>
-          <Link
-            href="/admin/payments?tab=settlement"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
-          >
-            <FileSpreadsheet size={13} className="text-navy" /> Bulk Payment
-          </Link>
-          <span className="rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-900">
-            DEMO DATA · PHASE 1
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-            <Lock size={12} className="text-slate-500" /> 1 ID Login Lock (Note 5)
-          </span>
+            <Search size={14} className="text-[#64748B] shrink-0" />
+            <input
+              type="text"
+              placeholder={
+                portal === "admin"
+                  ? "Search SD, Merchant, TxID, UTR..."
+                  : portal === "super-distributor"
+                  ? "Search Area Distributor, Retailer..."
+                  : portal === "area-distributor"
+                  ? "Search Retailer Storefront, RMN..."
+                  : "Search TxID, UTR, Service..."
+              }
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+              className="w-full bg-transparent text-xs text-[#101C32] placeholder-[#64748B] outline-none"
+            />
+            {globalSearch && (
+              <button
+                type="button"
+                onClick={() => setGlobalSearch("")}
+                className="text-[#64748B] hover:text-[#101C32] p-1"
+                aria-label="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1 rounded-lg bg-[#101C32] px-3 py-1.5 text-[11px] font-bold text-white shadow-xs hover:bg-[#1a2d52] transition"
+            >
+              Search
+            </button>
+          </form>
         </div>
 
-        {/* Right: Portal Switcher Pill & Profile */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
-            <Link
-              href="/admin/dashboard"
-              className={`rounded px-2.5 py-1 transition ${
-                portal === "admin" ? "bg-navy text-white shadow-sm" : "text-slate-600 hover:text-navy"
-              }`}
+        {/* Right: Notifications & Current User Profile */}
+        <div className="flex items-center gap-3">
+          {/* Notifications Bell */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                setShowUserMenu(false);
+              }}
+              className="relative p-2 rounded-xl text-[#64748B] hover:bg-[#F5F7FA] hover:text-[#101C32] transition"
+              aria-label="View notifications"
             >
-              Admin
-            </Link>
-            <Link
-              href="/distributor/dashboard"
-              className={`rounded px-2.5 py-1 transition ${
-                portal === "distributor" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-navy"
-              }`}
-            >
-              Distributor
-            </Link>
-            <Link
-              href="/retailer/dashboard"
-              className={`rounded px-2.5 py-1 transition ${
-                portal === "retailer" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-navy"
-              }`}
-            >
-              Retailer
-            </Link>
+              <Bell size={18} />
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#16B8A6]" />
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-xl z-50">
+                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
+                  <h4 className="text-xs font-bold text-[#101C32]">System Notifications</h4>
+                  <span className="text-[10px] text-emerald-600 font-semibold">Switch Operational</span>
+                </div>
+                <div className="py-6 text-center text-xs text-[#64748B]">
+                  <p className="font-semibold text-[#101C32]">All systems operating normally</p>
+                  <p className="text-[11px] text-[#64748B] mt-1">
+                    No pending security alerts or system outages recorded.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
-          <button className="rounded-lg p-2 text-slate-600 hover:bg-slate-100" aria-label="Notifications">
-            <Bell size={18} />
-          </button>
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-navy text-xs font-bold text-white">
-            {portal === "admin" ? "AD" : portal === "distributor" ? "SD" : "RT"}
+          {/* Active Authenticated User Profile */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowUserMenu(!showUserMenu);
+                setShowNotifications(false);
+              }}
+              className="flex items-center gap-2 pl-2 border-l border-[#E2E8F0] rounded-xl p-1 hover:bg-[#F5F7FA] transition text-left"
+              aria-label="User profile menu"
+            >
+              <div className="hidden sm:block text-right">
+                <p className="text-xs font-bold text-[#101C32] truncate max-w-[140px]">
+                  {session?.name || portalDetails.roleBadge}
+                </p>
+                <div className="flex items-center justify-end gap-1 text-[10px] text-[#64748B]">
+                  <span className="font-semibold text-[#16B8A6]">{portalDetails.roleBadge}</span>
+                </div>
+              </div>
+
+              <div
+                className="grid h-8 w-8 place-items-center rounded-full bg-[#101C32] text-[#16B8A6] text-xs font-bold shadow-xs border border-[#16B8A6]/40"
+                title={session?.name || portal}
+              >
+                {userInitials}
+              </div>
+            </button>
+
+            {/* Profile Dropdown */}
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-xl z-50">
+                <div className="border-b border-[#E2E8F0] pb-2 mb-2">
+                  <p className="text-xs font-bold text-[#101C32]">{session?.name || portalDetails.name}</p>
+                  <p className="text-[11px] text-[#64748B] truncate">{session?.email}</p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className="rounded bg-[#F5F7FA] px-1.5 py-0.5 text-[10px] font-mono text-[#64748B] border border-[#E2E8F0]">
+                      Scope: {session?.orgScope || "GLOBAL_ROOT"}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
+                >
+                  <LogOut size={14} />
+                  <span>Sign Out of {portalDetails.name}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Main Container */}
-      <div className="flex">
+      {/* ========================================================= */}
+      {/* MAIN LAYOUT (SIDEBAR + WORKSPACE)                         */}
+      {/* ========================================================= */}
+      <div className="flex flex-1 relative">
+        {/* Mobile Backdrop Overlay (Tap to Dismiss) */}
+        {mobileMenuOpen && (
+          <div
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 top-16 z-20 bg-[#101C32]/50 backdrop-blur-xs lg:hidden transition-opacity"
+            aria-hidden="true"
+          />
+        )}
+
         {/* Sidebar Navigation */}
         <aside
-          className={`${
-            mobileMenuOpen ? "block" : "hidden"
-          } fixed inset-y-0 left-0 top-16 z-30 w-72 border-r border-slate-200 bg-white p-4 shadow-xl overflow-y-auto lg:static lg:block lg:min-h-[calc(100vh-4rem)] lg:w-72 lg:p-4 lg:shadow-none`}
+          className={`
+            ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+            fixed inset-y-0 left-0 top-16 z-30 flex flex-col justify-between border-r border-[#1e2e4a] bg-[#101C32] text-white shadow-xl transition-all duration-300 ease-in-out
+            lg:static lg:min-h-[calc(100vh-4rem)]
+            ${sidebarCollapsed ? "lg:w-20" : "lg:w-72"}
+          `}
         >
-          <div className="mb-4 px-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              {portalDetails.roleBadge} Modules
-            </p>
-          </div>
-
-          <nav className="space-y-1">
-            {currentNav.map((item) => {
-              const Icon = item.icon;
-              const hasSub = item.submenus && item.submenus.length > 0;
-              const isSectionActive = pathname.startsWith(`/${portal}/${item.slug}`);
-              const isOpen = openDropdowns[item.slug] ?? isSectionActive;
-
-              if (!hasSub) {
-                return (
-                  <Link
-                    key={item.title}
-                    href={`/${portal}/${item.slug}`}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                      isSectionActive
-                        ? "bg-navy text-white shadow-sm"
-                        : "text-slate-700 hover:bg-slate-100 hover:text-navy"
-                    }`}
-                  >
-                    <Icon size={17} />
-                    <span>{item.title}</span>
-                  </Link>
-                );
-              }
-
-              // Accordion Item with Submenus
-              return (
-                <div key={item.title} className="space-y-1">
-                  <div
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                      isSectionActive
-                        ? "bg-slate-100 text-navy font-bold"
-                        : "text-slate-700 hover:bg-slate-50 hover:text-navy"
-                    }`}
-                  >
-                    <Link
-                      href={`/${portal}/${item.slug}`}
-                      className="flex items-center gap-3 flex-1"
-                    >
-                      <Icon size={17} className={isSectionActive ? "text-navy" : "text-slate-500"} />
-                      <span>{item.title}</span>
-                    </Link>
-                    <button
-                      onClick={() => toggleDropdown(item.slug)}
-                      className="p-1 text-slate-400 hover:text-slate-700"
-                      aria-label={`Toggle ${item.title}`}
-                    >
-                      {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </button>
+          {/* Scrollable Navigation Area */}
+          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+            {/* Sidebar Scope Header */}
+            <div className={`px-2 ${sidebarCollapsed ? "text-center" : ""}`}>
+              {!sidebarCollapsed ? (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#16B8A6]">
+                      {portalDetails.roleBadge}
+                    </span>
+                    {session?.orgScope && (
+                      <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[9px] text-slate-300">
+                        {session.orgScope}
+                      </span>
+                    )}
                   </div>
-
-                  {/* Submenu Dropdown Items */}
-                  {isOpen && (
-                    <div className="ml-5 space-y-0.5 border-l-2 border-slate-200 pl-3 pt-1 pb-1">
-                      {item.submenus!.map((sub) => {
-                        const isSubActive =
-                          pathname === `/${portal}/${item.slug}` &&
-                          (currentTab === sub.tab || (!currentTab && sub.tab === item.submenus![0].tab));
-
-                        return (
-                          <Link
-                            key={sub.label}
-                            href={`/${portal}/${item.slug}?tab=${sub.tab}`}
-                            className={`block rounded-md px-2.5 py-1.5 text-[11px] font-medium transition ${
-                              isSubActive
-                                ? "bg-navy text-white font-bold shadow-xs"
-                                : "text-slate-600 hover:bg-slate-100 hover:text-navy"
-                            }`}
-                          >
-                            {sub.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
+                  {session?.territory && (
+                    <p className="mt-1 text-[11px] text-slate-300 flex items-center gap-1 font-medium truncate">
+                      <MapPin size={11} className="text-[#16B8A6] shrink-0" />
+                      <span className="truncate">{session.territory}</span>
+                    </p>
                   )}
                 </div>
-              );
-            })}
-          </nav>
+              ) : (
+                <div className="flex justify-center" title={`${portalDetails.roleBadge} (${session?.orgScope || ""})`}>
+                  <span className="rounded-full bg-[#16B8A6]/20 p-1.5 text-[#16B8A6]">
+                    <ShieldCheck size={16} />
+                  </span>
+                </div>
+              )}
+            </div>
 
-          {/* Footer in Sidebar */}
-          <div className="mt-8 border-t border-slate-200 px-3 pt-4 text-[11px] text-slate-400">
-            <p className="font-semibold text-slate-600">BSpark Digitized Engine</p>
-            <p className="mt-0.5">Tempered Plan (Margin) active</p>
+            {/* Navigation Items List */}
+            <nav className="space-y-1">
+              {currentNav.map((item) => {
+                const Icon = item.icon;
+                const hasSub = item.submenus && item.submenus.length > 0;
+                const isSectionActive = pathname.startsWith(`/${portal}/${item.slug}`);
+                const isOpen = openDropdowns[item.slug] ?? isSectionActive;
+
+                if (!hasSub) {
+                  return (
+                    <div key={item.title} className="relative group">
+                      <Link
+                        href={`/${portal}/${item.slug}`}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition ${
+                          sidebarCollapsed ? "justify-center" : ""
+                        } ${
+                          isSectionActive
+                            ? "bg-[#16B8A6] text-[#101C32] font-bold shadow-sm"
+                            : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <Icon size={18} className="shrink-0" />
+                        {!sidebarCollapsed && <span>{item.title}</span>}
+                      </Link>
+
+                      {/* Tooltip on Collapsed Sidebar */}
+                      {sidebarCollapsed && (
+                        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:block z-50 whitespace-nowrap rounded-md bg-[#101C32] px-2.5 py-1 text-xs font-bold text-white shadow-lg border border-white/20">
+                          {item.title}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Accordion Item with Submenus
+                return (
+                  <div key={item.title} className="space-y-1 relative group">
+                    <div
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition ${
+                        sidebarCollapsed ? "justify-center" : ""
+                      } ${
+                        isSectionActive
+                          ? "bg-white/15 text-white font-bold border-l-4 border-[#16B8A6]"
+                          : "text-slate-300 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <Link
+                        href={`/${portal}/${item.slug}`}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-3 flex-1 ${sidebarCollapsed ? "justify-center" : ""}`}
+                      >
+                        <Icon
+                          size={18}
+                          className={`shrink-0 ${isSectionActive ? "text-[#16B8A6]" : "text-slate-300"}`}
+                        />
+                        {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
+                      </Link>
+
+                      {!sidebarCollapsed && (
+                        <button
+                          onClick={() => toggleDropdown(item.slug)}
+                          className="p-1 text-slate-400 hover:text-white"
+                          aria-label={`Toggle ${item.title}`}
+                        >
+                          {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Tooltip for Collapsed Sidebar */}
+                    {sidebarCollapsed && (
+                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block z-50 w-52 rounded-xl bg-[#101C32] p-2 shadow-2xl border border-white/20">
+                        <p className="px-2 py-1 text-xs font-bold text-[#16B8A6] border-b border-white/10 mb-1">
+                          {item.title}
+                        </p>
+                        <div className="space-y-1">
+                          {item.submenus!.map((sub) => (
+                            <Link
+                              key={sub.label}
+                              href={`/${portal}/${item.slug}?tab=${sub.tab}`}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className="block rounded-lg px-2 py-1 text-[11px] text-slate-300 hover:bg-white/10 hover:text-white"
+                            >
+                              {sub.label}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Expanded Nested Submenu */}
+                    {!sidebarCollapsed && isOpen && (
+                      <div className="ml-4 space-y-0.5 border-l border-white/20 pl-3 pt-1 pb-1">
+                        {item.submenus!.map((sub) => {
+                          const isSubActive =
+                            pathname === `/${portal}/${item.slug}` &&
+                            (currentTab === sub.tab ||
+                              (!currentTab && sub.tab === item.submenus![0].tab));
+
+                          return (
+                            <Link
+                              key={sub.label}
+                              href={`/${portal}/${item.slug}?tab=${sub.tab}`}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`block rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
+                                isSubActive
+                                  ? "bg-[#16B8A6] text-[#101C32] font-bold shadow-xs"
+                                  : "text-slate-300 hover:bg-white/10 hover:text-white"
+                              }`}
+                            >
+                              {sub.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Desktop Collapse / Expand Toggle Bar */}
+          <div className="hidden lg:flex items-center justify-between border-t border-white/10 p-3">
+            {!sidebarCollapsed && (
+              <span className="text-[11px] text-slate-400 font-medium">Collapse Navigation</span>
+            )}
+            <button
+              onClick={toggleSidebarCollapse}
+              className={`rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition ${
+                sidebarCollapsed ? "w-full flex justify-center" : ""
+              }`}
+              title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              aria-label={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            </button>
           </div>
         </aside>
 
-        {/* Main Content Area */}
-        <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">{children}</main>
+        {/* Workspace Main Content */}
+        <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+          {children}
+        </main>
       </div>
+
+      {/* ========================================================= */}
+      {/* FLOATING AI ASSISTANT CHATBOT                             */}
+      {/* ========================================================= */}
+      <FloatingAiChatbot session={session} portal={portal} />
     </div>
   );
 }

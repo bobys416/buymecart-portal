@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "BuyMeCart + IBNK",
+    "slug": "buymecart-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "buymecart",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#101C32"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.buymecart.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "BuyMeCart needs camera access to capture KYC documents, applicant selfies, shop photographs, and 30-second Video KYC recordings.",
+        "NSMicrophoneUsageDescription": "BuyMeCart needs microphone access for recording audio and dynamic OTP recitation during 30-second Video KYC onboarding.",
+        "NSPhotoLibraryUsageDescription": "BuyMeCart needs photo library access to upload identity proofs, PAN cards, MSME certificates, and cancelled cheques.",
+        "NSFaceIDUsageDescription": "Use Face ID for rapid and secure authentication to your BuyMeCart + IBNK authorized merchant wallet."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#101C32"
+      },
+      "package": "org.buymecart.mobile",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow BuyMeCart to access camera for document scanning, merchant selfie capture, and Video KYC."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow BuyMeCart to authenticate using biometric sensors."
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://api.buymecart.org",
+      "appEnv": "development",
+      "supportPhone": "+91 1800 200 4265",
+      "supportEmail": "compliance@buymecart.org",
+      "eas": {
+        "projectId": "buymecart-ibnk-fintech"
+      }
+    }
+  }
+}

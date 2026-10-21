@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
-import { Award, Building2, Download, TrendingUp, Users } from "lucide-react";
+import React, { useState } from "react";
+import { Award, Building2, Download, Search, TrendingUp, Users, X } from "lucide-react";
 import { formatINR } from "@/lib/mock-data";
 
 export function AdminChannelReportsModule() {
+  const [channelSearch, setChannelSearch] = useState("");
   const channelData = [
     {
       sdName: "Rajeev Mehta (SD-NORTH-01)",
@@ -17,7 +18,7 @@ export function AdminChannelReportsModule() {
     },
     {
       sdName: "Arun Singh (SD-CENTRAL-01)",
-      territory: "Central India (Bhopal / Indore)",
+      territory: "Central India Division",
       adCount: 3,
       retailerCount: 19,
       grossVolume: 3120000,
@@ -81,6 +82,37 @@ export function AdminChannelReportsModule() {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-panel">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 p-4">
+          <h2 className="text-sm font-bold text-navy">Super Distributor Channel Performance</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy">
+              <Search size={14} className="text-slate-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search SD name, territory..."
+                value={channelSearch}
+                onChange={(e) => setChannelSearch(e.target.value)}
+                className="w-48 bg-transparent text-xs text-slate-800 outline-none"
+              />
+              {channelSearch && (
+                <button
+                  type="button"
+                  onClick={() => setChannelSearch("")}
+                  className="text-slate-400 hover:text-slate-600"
+                  aria-label="Clear channel search"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+            >
+              <Search size={12} /> Search Channels
+            </button>
+          </div>
+        </div>
         <table className="w-full min-w-[750px] text-left text-sm">
           <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
             <tr>
@@ -93,7 +125,16 @@ export function AdminChannelReportsModule() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {channelData.map((c) => (
+            {channelData
+              .filter((c) => {
+                if (!channelSearch) return true;
+                const q = channelSearch.toLowerCase();
+                return (
+                  c.sdName.toLowerCase().includes(q) ||
+                  c.territory.toLowerCase().includes(q)
+                );
+              })
+              .map((c) => (
               <tr key={c.sdName} className="hover:bg-slate-50">
                 <td className="px-5 py-4 font-bold text-navy">{c.sdName}</td>
                 <td className="px-5 py-4 text-xs text-slate-600">{c.territory}</td>
@@ -109,3 +150,4 @@ export function AdminChannelReportsModule() {
     </div>
   );
 }
+

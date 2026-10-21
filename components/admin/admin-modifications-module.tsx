@@ -11,12 +11,14 @@ import {
   Percent,
   RefreshCw,
   Save,
+  Search,
   Send,
   ShieldAlert,
   Smartphone,
   ToggleLeft,
   ToggleRight,
   UserCheck,
+  X,
   Zap,
 } from "lucide-react";
 import { formatINR, mockMerchants, mockTemperedMarginSchedule } from "@/lib/mock-data";
@@ -46,6 +48,8 @@ export function AdminModificationsModule({ initialTab = "commercial" }: AdminMod
   const [mappingSuccess, setMappingSuccess] = useState(false);
 
   // 3. Profile Modification State (Page 5: Agent RMN, Agent Name, Email ID, Shop Name, Shop Categ, Address)
+  const [profileSearch, setProfileSearch] = useState("");
+  const [profileSearchAlert, setProfileSearchAlert] = useState("");
   const [profileForm, setProfileForm] = useState({
     rmn: "9876543210",
     agentName: "Rajesh Kumar Sharma",
@@ -55,6 +59,30 @@ export function AdminModificationsModule({ initialTab = "commercial" }: AdminMod
     address: "Shop 4, Market Complex, Station Road, Jaipur",
   });
   const [profileSuccess, setProfileSuccess] = useState(false);
+
+  const handleProfileSearch = () => {
+    if (!profileSearch.trim()) return;
+    const q = profileSearch.trim().toLowerCase();
+    const found = mockMerchants.find(
+      (m) =>
+        m.rmn.includes(q) ||
+        m.agentName.toLowerCase().includes(q) ||
+        m.shopName.toLowerCase().includes(q)
+    );
+    if (found) {
+      setProfileForm({
+        rmn: found.rmn,
+        agentName: found.agentName,
+        email: found.email,
+        shopName: found.shopName,
+        shopCategory: found.shopCategory,
+        address: found.address,
+      });
+      setProfileSearchAlert("");
+    } else {
+      setProfileSearchAlert(`No merchant found matching "${profileSearch}".`);
+    }
+  };
 
   // 4. Tempered Margin Plan Editor State (Page 3 & Page 5)
   const [marginSchedule, setMarginSchedule] = useState<TemperedMarginSchedule>(mockTemperedMarginSchedule);
@@ -400,11 +428,70 @@ export function AdminModificationsModule({ initialTab = "commercial" }: AdminMod
       {/* 4. MODIFY PROFILE (Page 5 Submenu) */}
       {activeTab === "profile" && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-          <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-base font-bold text-navy">
-              Modify Profile (Agent RMN, Agent Name, Email ID, Shop Name, Shop Categ, Address)
-            </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-navy">
+                Modify Profile (Agent RMN, Agent Name, Email ID, Shop Name, Shop Categ, Address)
+              </h2>
+              <p className="text-xs text-slate-500">
+                Search an existing merchant or retailer to load profile data and update registered parameters.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search RMN, name, store..."
+                  value={profileSearch}
+                  onChange={(e) => {
+                    setProfileSearch(e.target.value);
+                    setProfileSearchAlert("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleProfileSearch();
+                    }
+                  }}
+                  className="w-44 bg-transparent text-xs text-slate-800 outline-none"
+                />
+                {profileSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileSearch("");
+                      setProfileSearchAlert("");
+                    }}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Clear profile search"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleProfileSearch}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+              >
+                <Search size={12} /> Search Profile
+              </button>
+            </div>
           </div>
+
+          {profileSearchAlert && (
+            <div className="mt-3 rounded-lg bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-700 flex items-center justify-between">
+              <span>{profileSearchAlert}</span>
+              <button
+                type="button"
+                onClick={() => setProfileSearchAlert("")}
+                className="text-rose-500 hover:text-rose-800 font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           <form
             onSubmit={(e) => {
@@ -568,3 +655,4 @@ export function AdminModificationsModule({ initialTab = "commercial" }: AdminMod
     </div>
   );
 }
+

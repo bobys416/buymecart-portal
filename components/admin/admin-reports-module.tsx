@@ -13,6 +13,7 @@ import {
   Search,
   Smartphone,
   Wallet,
+  X,
 } from "lucide-react";
 import { formatINR, mockPaymentTransactions, mockMerchants } from "@/lib/mock-data";
 
@@ -23,6 +24,7 @@ interface AdminReportsModuleProps {
 export function AdminReportsModule({ initialTab = "account-ledger" }: AdminReportsModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [selectedRMN, setSelectedRMN] = useState<string>("All");
+  const [reportSearchQuery, setReportSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState({ start: "2026-10-01", end: "2026-10-19" });
 
   const reportTabs = [
@@ -88,12 +90,42 @@ export function AdminReportsModule({ initialTab = "account-ledger" }: AdminRepor
       {/* Filter Bar (Dates / Agent RMN from Page 5 specification) */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
         <div className="flex flex-wrap items-center gap-4 text-xs">
+          {/* Freeform Search Bar with explicit Search Reports button */}
+          <div className="flex flex-1 min-w-[260px] items-center gap-2">
+            <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy transition">
+              <Search size={14} className="text-slate-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search TxID, UTR, Beneficiary, or Service..."
+                value={reportSearchQuery}
+                onChange={(e) => setReportSearchQuery(e.target.value)}
+                className="w-full bg-transparent text-xs text-slate-800 outline-none"
+              />
+              {reportSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setReportSearchQuery("")}
+                  className="text-slate-400 hover:text-slate-600"
+                  aria-label="Clear search"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition shrink-0"
+            >
+              <Search size={12} /> Search Reports
+            </button>
+          </div>
+
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-700">Filter by Agent RMN:</span>
             <select
               value={selectedRMN}
               onChange={(e) => setSelectedRMN(e.target.value)}
-              className="rounded-lg border border-slate-300 p-1.5"
+              className="rounded-lg border border-slate-300 p-1.5 bg-white"
             >
               <option value="All">All Registered RMNs</option>
               {mockMerchants.map((m) => (
@@ -110,7 +142,7 @@ export function AdminReportsModule({ initialTab = "account-ledger" }: AdminRepor
               type="date"
               value={dateRange.start}
               onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-              className="rounded-lg border border-slate-300 p-1"
+              className="rounded-lg border border-slate-300 p-1 bg-white"
             />
           </div>
 
@@ -120,7 +152,7 @@ export function AdminReportsModule({ initialTab = "account-ledger" }: AdminRepor
               type="date"
               value={dateRange.end}
               onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-              className="rounded-lg border border-slate-300 p-1"
+              className="rounded-lg border border-slate-300 p-1 bg-white"
             />
           </div>
         </div>
@@ -152,7 +184,21 @@ export function AdminReportsModule({ initialTab = "account-ledger" }: AdminRepor
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {mockPaymentTransactions.map((tx) => (
+              {mockPaymentTransactions
+                .filter((tx) => {
+                  const matchesRmn = selectedRMN === "All" || tx.rmn === selectedRMN;
+                  if (!matchesRmn) return false;
+                  if (!reportSearchQuery) return true;
+                  const q = reportSearchQuery.toLowerCase();
+                  return (
+                    tx.id.toLowerCase().includes(q) ||
+                    tx.bankRefNo.toLowerCase().includes(q) ||
+                    tx.service.toLowerCase().includes(q) ||
+                    tx.retailerName.toLowerCase().includes(q) ||
+                    tx.rmn.includes(q)
+                  );
+                })
+                .map((tx) => (
                 <tr key={tx.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 text-xs">
                     <p className="font-bold text-navy">{tx.id}</p>
@@ -184,3 +230,4 @@ export function AdminReportsModule({ initialTab = "account-ledger" }: AdminRepor
     </div>
   );
 }
+

@@ -20,6 +20,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Users,
+  X,
 } from "lucide-react";
 import { formatINR, mockManagedProductSummaries, mockPaymentTransactions } from "@/lib/mock-data";
 import { ManagedProductSummary } from "@/lib/types";
@@ -31,6 +32,10 @@ interface AdminManagedProductsModuleProps {
 export function AdminManagedProductsModule({ initialTab = "transactions" }: AdminManagedProductsModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [selectedSummary, setSelectedSummary] = useState<ManagedProductSummary | null>(null);
+
+  // Search filter states
+  const [operatorSearch, setOperatorSearch] = useState("");
+  const [txSearch, setTxSearch] = useState("");
 
   // Map products state
   const [mappingState, setMappingState] = useState([
@@ -94,16 +99,46 @@ export function AdminManagedProductsModule({ initialTab = "transactions" }: Admi
       {activeTab === "transactions" && (
         <div className="space-y-6">
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-            <div className="border-b border-slate-100 pb-3">
-              <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800">
-                Page 4 Online Transaction Table
-              </span>
-              <h2 className="mt-1 text-base font-bold text-navy">
-                Operator Performance & Margin Breakdown Table
-              </h2>
-              <p className="font-mono text-xs text-slate-500">
-                Schema: Operator | Total | 5% | 7% | Succs | Unset | Fail | Pending | Refunded | Detail
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800">
+                  Page 4 Online Transaction Table
+                </span>
+                <h2 className="mt-1 text-base font-bold text-navy">
+                  Operator Performance & Margin Breakdown Table
+                </h2>
+                <p className="font-mono text-xs text-slate-500">
+                  Schema: Operator | Total | 5% | 7% | Succs | Unset | Fail | Pending | Refunded | Detail
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy">
+                  <Search size={14} className="text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search operator, circle, vendor..."
+                    value={operatorSearch}
+                    onChange={(e) => setOperatorSearch(e.target.value)}
+                    className="w-48 bg-transparent text-xs text-slate-800 outline-none"
+                  />
+                  {operatorSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setOperatorSearch("")}
+                      className="text-slate-400 hover:text-slate-600"
+                      aria-label="Clear operator search"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+                >
+                  <Search size={12} /> Search Operators
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 overflow-x-auto">
@@ -123,7 +158,17 @@ export function AdminManagedProductsModule({ initialTab = "transactions" }: Admi
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {mockManagedProductSummaries.map((s) => (
+                  {mockManagedProductSummaries
+                    .filter((s) => {
+                      if (!operatorSearch) return true;
+                      const q = operatorSearch.toLowerCase();
+                      return (
+                        s.operator.toLowerCase().includes(q) ||
+                        s.circle.toLowerCase().includes(q) ||
+                        s.vendor.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((s) => (
                     <tr key={s.operator} className="hover:bg-slate-50">
                       <td className="px-4 py-3.5">
                         <p className="font-bold text-navy">{s.operator}</p>
@@ -154,13 +199,43 @@ export function AdminManagedProductsModule({ initialTab = "transactions" }: Admi
 
           {/* Detailed Transaction View (Page 4 Detail Table Columns) */}
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-panel">
-            <div className="border-b border-slate-100 pb-3">
-              <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-800">
-                Page 4 Detail View Schema
-              </span>
-              <h3 className="mt-1 text-sm font-bold text-navy">
-                Operator | Stat | Date | OpID | Source | Response | Circle | User | Customer | TransID | Amount | Cat
-              </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-800">
+                  Page 4 Detail View Schema
+                </span>
+                <h3 className="mt-1 text-sm font-bold text-navy">
+                  Operator | Stat | Date | OpID | Source | Response | Circle | User | Customer | TransID | Amount | Cat
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 focus-within:bg-white focus-within:border-navy focus-within:ring-1 focus-within:ring-navy">
+                  <Search size={14} className="text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search TransID, OpID, User..."
+                    value={txSearch}
+                    onChange={(e) => setTxSearch(e.target.value)}
+                    className="w-44 bg-transparent text-xs text-slate-800 outline-none"
+                  />
+                  {txSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setTxSearch("")}
+                      className="text-slate-400 hover:text-slate-600"
+                      aria-label="Clear tx search"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition"
+                >
+                  <Search size={12} /> Search Transactions
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 overflow-x-auto">
@@ -181,7 +256,20 @@ export function AdminManagedProductsModule({ initialTab = "transactions" }: Admi
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {mockPaymentTransactions.map((tx) => (
+                  {mockPaymentTransactions
+                    .filter((tx) => {
+                      if (!txSearch) return true;
+                      const q = txSearch.toLowerCase();
+                      return (
+                        tx.id.toLowerCase().includes(q) ||
+                        tx.operator.toLowerCase().includes(q) ||
+                        tx.rmn.includes(q) ||
+                        tx.customerRef.toLowerCase().includes(q) ||
+                        tx.circle.toLowerCase().includes(q) ||
+                        tx.category.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((tx) => (
                     <tr key={tx.id} className="hover:bg-slate-50 font-medium">
                       <td className="px-3 py-2.5 font-bold text-navy">{tx.operator}</td>
                       <td className="px-3 py-2.5">
@@ -365,3 +453,4 @@ export function AdminManagedProductsModule({ initialTab = "transactions" }: Admi
     </div>
   );
 }
+

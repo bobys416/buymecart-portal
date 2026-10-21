@@ -8,29 +8,43 @@
     "start": "next start",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "mobile": "npm.cmd --prefix mobile run start",
+    "mobile:start": "npm.cmd --prefix mobile run start",
+    "mobile:test": "npm.cmd --prefix mobile run check && npm.cmd run lint && vitest run tests/mobile-app.test.tsx",
+    "mobile:check": "npm.cmd --prefix mobile run check && npm.cmd run lint && vitest run",
+    "mobile:android": "npm.cmd --prefix mobile run android",
+    "mobile:ios": "npm.cmd --prefix mobile run ios",
+    "backend:dev": "backend\\.venv\\Scripts\\uvicorn.exe app.main:app --app-dir backend --reload --port 8000",
+    "backend:test": "backend\\.venv\\Scripts\\pytest.exe backend/tests -v",
+    "backend:migrate": "backend\\.venv\\Scripts\\alembic.exe -c backend/alembic.ini upgrade head"
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.1",
+    "@stripe/stripe-js": "^10.1.0",
+    "@types/qrcode": "^1.5.6",
     "lucide-react": "0.468.0",
     "next": "15.1.0",
+    "qrcode": "^1.5.4",
+    "razorpay": "^2.9.8",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-hook-form": "7.54.2",
     "recharts": "2.15.0",
+    "stripe": "^23.0.0",
     "zod": "3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.49.1",
+    "@testing-library/react": "16.1.0",
     "@types/node": "22.10.2",
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
-    "@playwright/test": "1.49.1",
-    "@testing-library/react": "16.1.0",
     "autoprefixer": "10.4.20",
+    "jsdom": "25.0.1",
     "postcss": "8.4.49",
     "tailwindcss": "3.4.16",
     "typescript": "5.7.2",
-    "vitest": "2.1.8",
-    "jsdom": "25.0.1"
+    "vitest": "2.1.8"
   }
 }

@@ -1,10 +1,16 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { AdminMasterDashboard } from "@/components/admin/admin-master-dashboard";
 import { AdminMerchantModule } from "@/components/admin/admin-merchant-module";
 import { AdminPaymentModule } from "@/components/admin/admin-payment-module";
 import { RetailerPortalView } from "@/components/retailer/retailer-portal-view";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/admin",
+}));
 
 beforeAll(() => {
   global.ResizeObserver = class ResizeObserver {

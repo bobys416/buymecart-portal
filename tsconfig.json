@@ -10,13 +10,21 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "baseUrl": ".",
-    "paths": { "@/*": ["./*"] },
+    "paths": {
+      "@/*": ["./*"],
+      "@buymecart/shared-types": ["packages/shared-types/index.ts"],
+      "@buymecart/business-logic": ["packages/business-logic/index.ts"],
+      "@buymecart/design-tokens": ["packages/design-tokens/index.ts"],
+      "@buymecart/validation": ["packages/validation/index.ts"],
+      "@buymecart/api-client": ["packages/api-client/index.ts"]
+    },
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "typeRoots": ["./node_modules/@types"],
     "plugins": [{ "name": "next" }]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "mobile", "mobile/**/*", "**/node_modules", "tests/mobile-app.test.tsx"]
 }

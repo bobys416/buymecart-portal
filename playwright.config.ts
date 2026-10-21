@@ -12,12 +12,12 @@ export default defineConfig({
     timeout: 60000,
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"], channel: "chrome" } },
+    { name: "chromium", use: { ...devices["Desktop Chrome"], channel: "msedge" } },
     {
       name: "mobile",
       use: {
         browserName: "chromium",
-        channel: "chrome",
+        channel: "msedge",
         viewport: { width: 390, height: 844 },
         deviceScaleFactor: 1,
         hasTouch: true,

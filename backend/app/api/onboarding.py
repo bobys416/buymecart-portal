@@ -19,15 +19,23 @@ from app.core.permissions import Permission
 from app.models.onboarding import ApplicationStatus, KycDocument
 from app.models.user import User, UserRole
 from app.schemas.onboarding import (
+    AadhaarVerificationRequest,
+    AadhaarVerificationResponse,
     ActivationRequest,
+    BankVerificationRequest,
+    BankVerificationResponse,
+    ComplianceDossierResponse,
     KycDocumentResponse,
     OnboardingApplicationResponse,
     OnboardingCreateRequest,
     OnboardingUpdateRequest,
     PaginatedOnboardingResponse,
+    PanVerificationRequest,
+    PanVerificationResponse,
     ResubmitRequest,
     ReviewDecisionRequest,
 )
+from app.services.ml_service import KycRiskResponse
 from app.services.onboarding_service import OnboardingService
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding & KYC"])
@@ -361,3 +369,112 @@ def activate_onboarding_application(
         client_ip=client_ip,
     )
     return OnboardingApplicationResponse.from_orm_model(application)
+
+
+# ==============================================================================
+# Phase 5: Statutory Verification & Regulatory Compliance Endpoints
+# ==============================================================================
+
+@router.post(
+    "/{application_id}/verify/pan",
+    response_model=PanVerificationResponse,
+    summary="Statutory PAN Verification",
+    description="Validates PAN format, entity classification, and name matching against NSDL/ITD standards.",
+)
+def verify_pan(
+    application_id: uuid.UUID,
+    data: PanVerificationRequest,
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    return OnboardingService.verify_pan(
+        actor=current_user,
+        application_id=application_id,
+        req=data,
+        db=db,
+        client_ip=client_ip,
+    )
+
+
+@router.post(
+    "/{application_id}/verify/aadhaar",
+    response_model=AadhaarVerificationResponse,
+    summary="Statutory Aadhaar Verification & Consent",
+    description="Validates Aadhaar last-4 format and generates a regulatory consent audit record.",
+)
+def verify_aadhaar(
+    application_id: uuid.UUID,
+    data: AadhaarVerificationRequest,
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    return OnboardingService.verify_aadhaar(
+        actor=current_user,
+        application_id=application_id,
+        req=data,
+        db=db,
+        client_ip=client_ip,
+    )
+
+
+@router.post(
+    "/{application_id}/verify/bank",
+    response_model=BankVerificationResponse,
+    summary="Bank Account Penny-Drop & IFSC Verification",
+    description="Validates statutory RBI IFSC syntax and executes an NPCI penny-drop verification simulation.",
+)
+def verify_bank_account(
+    application_id: uuid.UUID,
+    data: BankVerificationRequest,
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    return OnboardingService.verify_bank_account(
+        actor=current_user,
+        application_id=application_id,
+        req=data,
+        db=db,
+        client_ip=client_ip,
+    )
+
+
+@router.post(
+    "/{application_id}/evaluate-risk",
+    response_model=KycRiskResponse,
+    summary="Evaluate Application KYC ML Risk & Defect Scoring",
+    description="Runs fintech ML ensemble inference over uploaded evidence, Video KYC duration, and statutory formats.",
+)
+def evaluate_application_risk(
+    application_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    return OnboardingService.evaluate_application_kyc_risk(
+        actor=current_user,
+        application_id=application_id,
+        db=db,
+    )
+
+
+@router.get(
+    "/{application_id}/dossier",
+    response_model=ComplianceDossierResponse,
+    summary="Export Signed Regulatory Compliance Dossier",
+    description="Assembles a complete KYC Dossier with tamper-evident cryptographic SHA-256 fingerprint.",
+)
+def export_compliance_dossier(
+    application_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    return OnboardingService.export_compliance_dossier(
+        actor=current_user,
+        application_id=application_id,
+        db=db,
+    )

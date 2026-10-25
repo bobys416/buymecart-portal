@@ -46,6 +46,15 @@ from app.models.ai import (
     AiModelConfig,
     AiModelStatus,
 )
+from app.models.external_identity import ExternalIdentity, IdentityProvider
+from app.models.otp_challenge import OtpChallenge, OtpChannel, OtpPurpose
+from app.models.security import (
+    AlertSeverity,
+    LoginEvent,
+    LoginEventResult,
+    SecurityAlert,
+    UserSession,
+)
 from app.models.user import User, UserRole, UserStatus
 
 __all__ = [
@@ -64,6 +73,16 @@ __all__ = [
     "UserRole",
     "UserStatus",
     "AuditLog",
+    "ExternalIdentity",
+    "IdentityProvider",
+    "OtpChallenge",
+    "OtpChannel",
+    "OtpPurpose",
+    "UserSession",
+    "LoginEvent",
+    "LoginEventResult",
+    "SecurityAlert",
+    "AlertSeverity",
     "OnboardingApplication",
     "ApplicationProfile",
     "KycDocument",

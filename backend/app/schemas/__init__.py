@@ -6,10 +6,17 @@ from app.schemas.auth import (
     TokenResponse,
 )
 from app.schemas.network import (
+    AreaDistributorCreateRequest,
     AuditLogResponse,
+    DownlineTreeNodeResponse,
+    LineageChainResponse,
+    LineageNodeResponse,
     NetworkSummaryResponse,
     PaginatedResponse,
     PaginationMeta,
+    RetailerCreateRequest,
+    SuperDistributorCreateRequest,
+    UserCreateHierarchicalRequest,
     UserReassignRequest,
     UserStatusUpdateRequest,
 )
@@ -32,6 +39,17 @@ from app.schemas.onboarding import (
     ResubmitRequest,
     ReviewDecisionRequest,
     VideoKycInputSchema,
+)
+from app.schemas.security import (
+    LoginEventResponse,
+    MfaLoginChallengeResponse,
+    MfaLoginVerifyRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    SecurityAlertResolveRequest,
+    SecurityAlertResponse,
+    SessionRevokeResponse,
+    UserSessionResponse,
 )
 from app.schemas.user import UserBase, UserCreateInternal, UserResponse
 
@@ -68,4 +86,20 @@ __all__ = [
     "ConsentRecordResponse",
     "OnboardingApplicationResponse",
     "PaginatedOnboardingResponse",
+    "UserSessionResponse",
+    "SessionRevokeResponse",
+    "LoginEventResponse",
+    "SecurityAlertResponse",
+    "SecurityAlertResolveRequest",
+    "PasswordResetRequest",
+    "PasswordResetConfirm",
+    "MfaLoginChallengeResponse",
+    "MfaLoginVerifyRequest",
+    "SuperDistributorCreateRequest",
+    "AreaDistributorCreateRequest",
+    "RetailerCreateRequest",
+    "UserCreateHierarchicalRequest",
+    "LineageNodeResponse",
+    "LineageChainResponse",
+    "DownlineTreeNodeResponse",
 ]

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -30,6 +30,13 @@ interface AdminComplianceModuleProps {
 
 export function AdminComplianceModule({ initialTab = "pending-onboarding" }: AdminComplianceModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [kycCases, setKycCases] = useState<KYCCase[]>(mockKycCases);
   const [inspectingKyc, setInspectingKyc] = useState<KYCCase | null>(null);
   const [approvedCaseIds, setApprovedCaseIds] = useState<string[]>([]);

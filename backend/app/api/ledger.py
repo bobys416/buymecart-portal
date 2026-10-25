@@ -13,6 +13,7 @@ from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_active_user, get_db, require_permission
 from app.core.permissions import Permission
+from app.db.session import check_database_health
 from app.models.ledger import (
     AccountType,
     NotificationOutbox,
@@ -24,13 +25,18 @@ from app.models.ledger import (
 )
 from app.models.user import User, UserRole
 from app.schemas.ledger import (
+    AccountIntegrityResponse,
     BatchReconciliationResponse,
+    DatabaseHealthResponse,
     JournalEntryResponse,
     NotificationOutboxResponse,
     PaginatedTransactionResponse,
     PaymentInitiateRequest,
     RefundRequest,
+    SettlementBatchReconcileRequest,
+    SettlementBatchReconcileResponse,
     TransactionResponse,
+    TrialBalanceResponse,
     WalletBalanceResponse,
     WalletTopupRequest,
     WebhookPayload,
@@ -175,11 +181,9 @@ def list_transactions(
 
     meta = PaginationMeta(
         page=page,
-        limit=limit,
-        total=total,
+        page_size=limit,
+        total_items=total,
         total_pages=total_pages,
-        has_next=page < total_pages,
-        has_prev=page > 1,
     )
     return PaginatedTransactionResponse(
         items=[TransactionResponse.model_validate(t) for t in txns],
@@ -335,3 +339,65 @@ def list_notification_outbox(
 
     outbox_entries = list(db.scalars(query.order_by(desc(NotificationOutbox.created_at)).limit(50)).all())
     return [NotificationOutboxResponse.model_validate(n) for n in outbox_entries]
+
+
+# ==============================================================================
+# Phase 6: Production Ledger Invariants, Trial Balance & Reconciliation Hardening
+# ==============================================================================
+
+@router.get(
+    "/trial-balance",
+    response_model=TrialBalanceResponse,
+    summary="Real-Time Double-Entry Trial Balance Verification",
+    description="Audits the fundamental accounting equation across all postings: Sum(Debit) == Sum(Credit).",
+)
+def get_trial_balance(
+    current_user: User = Depends(require_permission(Permission.VIEW_LEDGER)),
+    db: Session = Depends(get_db),
+):
+    return LedgerService.verify_trial_balance(db)
+
+
+@router.get(
+    "/accounts/{account_id}/integrity",
+    response_model=AccountIntegrityResponse,
+    summary="Audit Account Balance Integrity Against Postings",
+    description="Audits historical ledger postings for an account, verifying zero balance drift.",
+)
+def audit_account_integrity(
+    account_id: uuid.UUID,
+    current_user: User = Depends(require_permission(Permission.VIEW_LEDGER)),
+    db: Session = Depends(get_db),
+):
+    return LedgerService.audit_account_ledger_integrity(db, account_id)
+
+
+@router.post(
+    "/reconciliation/settlement-batch",
+    response_model=SettlementBatchReconcileResponse,
+    summary="Reconcile Multi-Rail Settlement Batch",
+    description="Reconciles external banking settlement stream, flagging MATCHED, AMOUNT_MISMATCH, and MISSING_ON_PLATFORM.",
+)
+def reconcile_settlement_batch(
+    data: SettlementBatchReconcileRequest,
+    current_user: User = Depends(require_permission(Permission.RECONCILE_PAYMENTS)),
+    db: Session = Depends(get_db),
+):
+    return LedgerService.reconcile_external_settlement_stream(
+        db=db,
+        batch_id=data.batch_id,
+        settlement_items=data.settlement_items,
+    )
+
+
+@router.get(
+    "/database-health",
+    response_model=DatabaseHealthResponse,
+    summary="Production Database & Connection Pool Telemetry",
+    description="Returns live database dialect, connection pool saturation, and round-trip query latency.",
+)
+def get_database_health(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    return check_database_health(db)

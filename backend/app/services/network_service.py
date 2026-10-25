@@ -6,9 +6,17 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 from app.api.deps import is_in_network_scope
+from app.core.security import get_password_hash
 from app.models.audit_log import AuditLog
 from app.models.user import User, UserRole, UserStatus
-from app.schemas.network import NetworkSummaryResponse, PaginationMeta
+from app.schemas.network import (
+    DownlineTreeNodeResponse,
+    LineageChainResponse,
+    LineageNodeResponse,
+    NetworkSummaryResponse,
+    PaginationMeta,
+    UserCreateHierarchicalRequest,
+)
 
 
 class NetworkService:
@@ -211,6 +219,22 @@ class NetworkService:
         return user
 
     @classmethod
+    def get_all_descendant_ids(cls, db: Session, user_id: uuid.UUID) -> List[uuid.UUID]:
+        """Finds all direct and indirect subordinate user IDs using breadth-first traversal."""
+        descendants = []
+        queue = [user_id]
+        visited = set([user_id])
+        while queue:
+            parent_id = queue.pop(0)
+            child_ids = list(db.scalars(select(User.id).where(User.parent_id == parent_id)))
+            for cid in child_ids:
+                if cid not in visited:
+                    visited.add(cid)
+                    descendants.append(cid)
+                    queue.append(cid)
+        return descendants
+
+    @classmethod
     def change_user_status(
         cls,
         db: Session,
@@ -218,11 +242,13 @@ class NetworkService:
         user_id: uuid.UUID,
         new_status: UserStatus,
         reason: str,
+        cascade: bool = False,
         actor_ip: Optional[str] = None,
     ) -> User:
         """
         Updates account lifecycle status with strict privilege separation and audit logging.
         Prevents self-modification, self-approval, or unauthorized privilege elevation.
+        Optionally cascades status transition down to all downstream subordinates.
         """
         if actor.id == user_id:
             raise HTTPException(
@@ -269,9 +295,38 @@ class NetworkService:
                 "old_status": old_status.value,
                 "new_status": new_status.value,
                 "reason": reason,
+                "cascade": cascade,
             }),
         )
         db.add(audit_entry)
+
+        # Status Cascade to all subordinates
+        if cascade and new_status in (UserStatus.SUSPENDED, UserStatus.INACTIVE):
+            descendant_ids = cls.get_all_descendant_ids(db, target.id)
+            for d_id in descendant_ids:
+                descendant = db.scalar(select(User).where(User.id == d_id))
+                if descendant and descendant.status != new_status:
+                    d_old = descendant.status
+                    descendant.status = new_status
+                    cascade_audit = AuditLog(
+                        actor_id=actor.id,
+                        actor_login_id=actor.login_id,
+                        actor_role=actor.role.value,
+                        action="USER_STATUS_CASCADE",
+                        target_id=descendant.id,
+                        target_type="USER",
+                        actor_ip=actor_ip,
+                        metadata_json=json.dumps({
+                            "target_login_id": descendant.login_id,
+                            "target_role": descendant.role.value,
+                            "old_status": d_old.value,
+                            "new_status": new_status.value,
+                            "cascade_from": str(target.id),
+                            "reason": f"Cascade from upstream {target.role.value} ({target.login_id}): {reason}",
+                        }),
+                    )
+                    db.add(cascade_audit)
+
         db.commit()
         db.refresh(target)
         return target
@@ -363,3 +418,268 @@ class NetworkService:
         db.commit()
         db.refresh(target)
         return target
+
+    # ==============================================================================
+    # Phase 4: Hierarchical Creation, Lineage & Downline Methods
+    # ==============================================================================
+
+    @classmethod
+    def create_hierarchical_user(
+        cls,
+        db: Session,
+        actor: User,
+        req: UserCreateHierarchicalRequest,
+        actor_ip: Optional[str] = None,
+    ) -> User:
+        """
+        Creates a new user account enforcing strict hierarchical creation rules:
+        - Admin can create: Super Distributor, Area Distributor, Retailer.
+        - Super Distributor can create: Area Distributor directly under themselves.
+        - Area Distributor can create: Retailer directly under themselves.
+        - Retailer: Cannot create any user.
+        """
+        normalized_id = req.login_id.strip().lower()
+
+        # Check existing login_id
+        existing = db.scalar(select(User).where(func.lower(User.login_id) == normalized_id))
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A user with this login identifier already exists.",
+            )
+
+        # Check existing email
+        if req.email:
+            norm_email = req.email.strip().lower()
+            existing_email = db.scalar(select(User).where(func.lower(User.email) == norm_email))
+            if existing_email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A user with this email address already exists.",
+                )
+
+        target_role = req.role
+        assigned_parent_id = req.parent_id
+
+        # Enforce Role-based Creation Governance
+        if actor.role == UserRole.RETAILER:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Retailers do not possess administrative permissions to create accounts.",
+            )
+
+        elif actor.role == UserRole.AREA_DISTRIBUTOR:
+            if target_role != UserRole.RETAILER:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Area Distributors are only authorized to onboard Retailers.",
+                )
+            assigned_parent_id = actor.id
+
+        elif actor.role == UserRole.SUPER_DISTRIBUTOR:
+            if target_role == UserRole.AREA_DISTRIBUTOR:
+                assigned_parent_id = actor.id
+            elif target_role == UserRole.RETAILER:
+                if not assigned_parent_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Area Distributor parent_id required when Super Distributor registers a Retailer.",
+                    )
+                parent_ad = db.scalar(select(User).where(User.id == assigned_parent_id))
+                if not parent_ad or parent_ad.parent_id != actor.id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Parent Area Distributor must report to your Super Distributor node.",
+                    )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Super Distributors may only create Area Distributors or subordinate Retailers.",
+                )
+
+        elif actor.role == UserRole.ADMIN:
+            if target_role == UserRole.ADMIN:
+                assigned_parent_id = None
+            elif target_role == UserRole.SUPER_DISTRIBUTOR:
+                # Super Distributor reports to Admin or None
+                pass
+            elif target_role in (UserRole.AREA_DISTRIBUTOR, UserRole.RETAILER):
+                if not assigned_parent_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Parent distributor required when creating {target_role.value}.",
+                    )
+
+        # Resolve parent user
+        parent_user = None
+        if assigned_parent_id:
+            parent_user = db.scalar(select(User).where(User.id == assigned_parent_id))
+            if not parent_user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Assigned parent distributor not found.",
+                )
+            if parent_user.status != UserStatus.ACTIVE:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Cannot assign parent distributor '{parent_user.login_id}': Account is {parent_user.status.value}.",
+                )
+
+        # Validate hierarchy model invariant
+        new_user = User(
+            login_id=normalized_id,
+            email=req.email.strip().lower() if req.email else None,
+            phone=req.phone.strip() if req.phone else None,
+            full_name=req.full_name.strip(),
+            business_name=req.business_name.strip() if req.business_name else None,
+            territory=req.territory.strip() if req.territory else (parent_user.territory if parent_user else None),
+            hashed_password=get_password_hash(req.password),
+            role=target_role,
+            status=UserStatus.ACTIVE,
+            parent_id=assigned_parent_id,
+        )
+
+        is_valid, err_msg = new_user.validate_hierarchy(parent_user)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Hierarchy violation: {err_msg}",
+            )
+
+        db.add(new_user)
+        db.flush()
+
+        # Audit log entry
+        audit_entry = AuditLog(
+            actor_id=actor.id,
+            actor_login_id=actor.login_id,
+            actor_role=actor.role.value,
+            action="USER_HIERARCHICAL_CREATE",
+            target_id=new_user.id,
+            target_type="USER",
+            actor_ip=actor_ip,
+            metadata_json=json.dumps({
+                "created_login_id": new_user.login_id,
+                "created_role": new_user.role.value,
+                "parent_id": str(assigned_parent_id) if assigned_parent_id else None,
+                "territory": new_user.territory,
+            }),
+        )
+        db.add(audit_entry)
+        db.commit()
+        db.refresh(new_user)
+        return new_user
+
+    @classmethod
+    def get_user_lineage(cls, db: Session, actor: User, user_id: uuid.UUID) -> LineageChainResponse:
+        """
+        Returns full ancestor chain starting from user up to root.
+        Verifies caller network scope.
+        """
+        target = cls.get_user_by_id_scoped(db, actor, user_id)
+        if not target:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found or outside authorized network scope.",
+            )
+
+        chain = []
+        curr = target
+        depth = 0
+        is_active = True
+        blocking_reason = None
+        visited = set()
+
+        while curr:
+            if curr.id in visited:
+                break
+            visited.add(curr.id)
+
+            chain.append(
+                LineageNodeResponse(
+                    id=curr.id,
+                    login_id=curr.login_id,
+                    full_name=curr.full_name,
+                    role=curr.role,
+                    status=curr.status,
+                    territory=curr.territory,
+                    business_name=curr.business_name,
+                    parent_id=curr.parent_id,
+                    depth=depth,
+                )
+            )
+
+            if curr.id != target.id and curr.status != UserStatus.ACTIVE and is_active:
+                is_active = False
+                blocking_reason = f"Upstream node '{curr.login_id}' ({curr.role.value}) is {curr.status.value}."
+
+            if not curr.parent_id:
+                break
+
+            curr = db.scalar(select(User).where(User.id == curr.parent_id))
+            depth += 1
+
+        return LineageChainResponse(
+            user_id=target.id,
+            ancestors=chain,
+            is_lineage_active=is_active,
+            blocking_reason=blocking_reason,
+        )
+
+    @classmethod
+    def get_downline_tree(
+        cls,
+        db: Session,
+        actor: User,
+        root_user_id: Optional[uuid.UUID] = None,
+    ) -> DownlineTreeNodeResponse:
+        """
+        Recursively builds downline hierarchy tree starting from root_user_id or actor.
+        """
+        target_id = root_user_id or actor.id
+        root_user = cls.get_user_by_id_scoped(db, actor, target_id)
+        if not root_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found or outside authorized network scope.",
+            )
+
+        def build_node(u: User) -> DownlineTreeNodeResponse:
+            subs = list(db.scalars(select(User).where(User.parent_id == u.id).order_by(User.created_at.asc())))
+            children = [build_node(s) for s in subs]
+            return DownlineTreeNodeResponse(
+                id=u.id,
+                login_id=u.login_id,
+                full_name=u.full_name,
+                role=u.role,
+                status=u.status,
+                territory=u.territory,
+                business_name=u.business_name,
+                subordinates_count=len(children),
+                children=children,
+            )
+
+        return build_node(root_user)
+
+    @staticmethod
+    def check_upstream_lineage_active(db: Session, user: User) -> tuple[bool, Optional[str]]:
+        """
+        Traverses upstream hierarchy.
+        Returns (False, reason) if any ancestor in the lineage is SUSPENDED or INACTIVE.
+        """
+        curr = user
+        visited = set()
+        while curr and curr.parent_id:
+            if curr.id in visited:
+                break
+            visited.add(curr.id)
+            parent = db.scalar(select(User).where(User.id == curr.parent_id))
+            if not parent:
+                break
+            if parent.status != UserStatus.ACTIVE:
+                return (
+                    False,
+                    f"Upstream distributor '{parent.login_id}' ({parent.role.value}) is {parent.status.value}.",
+                )
+            curr = parent
+        return (True, None)

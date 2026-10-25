@@ -37,6 +37,13 @@ interface AdminPaymentModuleProps {
 
 export function AdminPaymentModule({ initialTab = "authorize" }: AdminPaymentModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [transactions, setTransactions] = useState<PaymentTransaction[]>(mockPaymentTransactions);
 
   // Gateway status & diagnostics state

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -25,6 +25,12 @@ interface AdminSupportModuleProps {
 
 export function AdminSupportModule({ initialTab = "open" }: AdminSupportModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [tickets, setTickets] = useState<SupportTicket[]>(mockSupportTickets);
   const [ticketSearch, setTicketSearch] = useState("");
 

@@ -12,9 +12,12 @@ import {
   FileText,
   HelpCircle,
   KeyRound,
+  Landmark,
   Layers,
   Lock,
   Plus,
+  Receipt,
+  RefreshCcw,
   RefreshCw,
   Search,
   Send,
@@ -243,6 +246,10 @@ export function SuperDistributorView({
         <div className="mt-6 flex flex-wrap gap-2 border-t border-[#E2E8F0] pt-4">
           {[
             { id: "overview", label: "Regional Dashboard", icon: TrendingUp },
+            { id: "payment-request", label: "Payment Request", icon: Landmark },
+            { id: "payment-reversal", label: "Payment Reversal", icon: RefreshCcw },
+            { id: "transactions", label: "Payment Transactions", icon: CreditCard },
+            { id: "payment-check", label: "Payment Check", icon: ShieldCheck },
             { id: "ad-network", label: "Area Distributors (ADs)", icon: Users },
             { id: "retailers", label: "Subordinate Retailers", icon: Building2 },
             { id: "balance-queries", label: "Clear Balance Queries", icon: Wallet },
@@ -787,6 +794,232 @@ export function SuperDistributorView({
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB: PAYMENT REQUEST (PDF Page 1)                              */}
+      {/* ============================================================== */}
+      {activeTab === "payment-request" && (
+        <div className="space-y-6 max-w-5xl">
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+            <div className="border-b border-[#E2E8F0] pb-4 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-teal uppercase">PDF Page 1 Section 1</span>
+                <h2 className="text-sm font-bold text-[#101C32]">Payment Request (Bank Request for Payment list of Bank)</h2>
+                <p className="text-xs text-[#64748B] mt-0.5">
+                  Authorize and dispatch bank payment requests across participating commercial banks.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => alert("Payment Request dispatched to partner bank core.")}
+                className="rounded-xl bg-[#101C32] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#1a2d52] transition"
+              >
+                + New Bank Payment Request
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-4 text-xs">
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-[#F5F7FA]">
+                <span className="text-[10px] text-slate-500 font-bold block">ICICI Corporate Bank</span>
+                <p className="font-extrabold text-[#101C32] text-sm mt-1">₹4,85,000.00</p>
+                <span className="text-[10px] text-emerald-600 font-semibold">12 Requests Cleared</span>
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-[#F5F7FA]">
+                <span className="text-[10px] text-slate-500 font-bold block">Axis Core Banking</span>
+                <p className="font-extrabold text-[#101C32] text-sm mt-1">₹3,20,000.00</p>
+                <span className="text-[10px] text-emerald-600 font-semibold">8 Requests Cleared</span>
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-[#F5F7FA]">
+                <span className="text-[10px] text-slate-500 font-bold block">State Bank of India</span>
+                <p className="font-extrabold text-[#101C32] text-sm mt-1">₹6,90,000.00</p>
+                <span className="text-[10px] text-emerald-600 font-semibold">18 Requests Cleared</span>
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-[#F5F7FA]">
+                <span className="text-[10px] text-slate-500 font-bold block">HDFC Bank Direct</span>
+                <p className="font-extrabold text-[#101C32] text-sm mt-1">₹2,40,000.00</p>
+                <span className="text-[10px] text-emerald-600 font-semibold">5 Requests Cleared</span>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F5F7FA] font-bold text-slate-600 border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">Request ID</th>
+                    <th className="p-3">Target Bank</th>
+                    <th className="p-3">Mode</th>
+                    <th className="p-3">Area Distributor</th>
+                    <th className="p-3">Amount (INR)</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  <tr>
+                    <td className="p-3 font-mono font-bold text-[#101C32]">BREQ-2026-901</td>
+                    <td className="p-3">ICICI Corporate</td>
+                    <td className="p-3 font-semibold text-teal">IMPS Immediate</td>
+                    <td className="p-3">Sunil Verma (AD-ZONE-01)</td>
+                    <td className="p-3 font-bold text-navy">₹1,50,000.00</td>
+                    <td className="p-3"><span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 font-bold text-[10px]">PROCESSED ✓</span></td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 font-mono font-bold text-[#101C32]">BREQ-2026-902</td>
+                    <td className="p-3">State Bank of India</td>
+                    <td className="p-3 font-semibold text-teal">RTGS High-Value</td>
+                    <td className="p-3">Kavita Jain (AD-ZONE-02)</td>
+                    <td className="p-3 font-bold text-navy">₹3,00,000.00</td>
+                    <td className="p-3"><span className="rounded bg-sky-100 text-sky-800 px-2 py-0.5 font-bold text-[10px]">IN TRANSIT</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB: PAYMENT REVERSAL (PDF Page 1: Refund Request, Nolimit)    */}
+      {/* ============================================================== */}
+      {activeTab === "payment-reversal" && (
+        <div className="space-y-6 max-w-4xl">
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+            <div className="border-b border-[#E2E8F0] pb-4">
+              <span className="text-[10px] font-bold text-rose-600 uppercase">PDF Page 1 Section 2</span>
+              <h2 className="text-sm font-bold text-[#101C32]">Payment Reversal (Refund Request, Nolimit)</h2>
+              <p className="text-xs text-[#64748B] mt-0.5">
+                Full-reserve refund authorization with zero artificial caps for failed or disputed merchant payouts.
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                alert("Reversal authorization submitted to Core Ledger with idempotency key.");
+              }}
+              className="mt-5 space-y-4 text-xs"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Transaction ID / UTR</label>
+                  <input
+                    type="text"
+                    defaultValue="BMC-TXN-20261019-994"
+                    className="w-full rounded-xl border border-slate-300 p-2 text-xs font-mono font-semibold text-navy outline-none focus:border-teal"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Refund Amount (INR - No Limit)</label>
+                  <input
+                    type="number"
+                    defaultValue="45000"
+                    className="w-full rounded-xl border border-slate-300 p-2 text-xs font-semibold text-navy outline-none focus:border-teal"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Reversal Reason & Justification</label>
+                <textarea
+                  rows={3}
+                  defaultValue="Beneficiary bank account credited twice during network switch timeout; authorized reverse debit to merchant wallet."
+                  className="w-full rounded-xl border border-slate-300 p-2 text-xs text-navy outline-none focus:border-teal"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  className="rounded-xl bg-rose-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-rose-700 transition"
+                >
+                  Authorize Full Reversal (Zero Limit)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB: PAYMENT TRANSACTIONS (PDF Page 1)                         */}
+      {/* ============================================================== */}
+      {activeTab === "transactions" && (
+        <div className="space-y-6 max-w-5xl">
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+            <div className="border-b border-[#E2E8F0] pb-4 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-teal uppercase">PDF Page 1 Section 3</span>
+                <h2 className="text-sm font-bold text-[#101C32]">Payment Transactions & Updates</h2>
+                <p className="text-xs text-[#64748B] mt-0.5">
+                  Transaction Update: Overall · Categorised (DMT, QKIK, DPMR/IMPS) · Subjective.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-3 text-xs">
+              <div className="rounded-xl border border-slate-200 bg-[#F5F7FA] p-4">
+                <span className="text-[10px] font-bold uppercase text-slate-500">1. Overall Update</span>
+                <p className="mt-1 text-2xl font-black text-navy">{formatINR(3120000)}</p>
+                <p className="mt-1 text-[11px] text-emerald-600 font-semibold">1,240 Total Network Transactions</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-[#F5F7FA] p-4">
+                <span className="text-[10px] font-bold uppercase text-slate-500">2. Categorised Products</span>
+                <p className="mt-1 text-xs font-bold text-navy">DMT · QKIK · DPMR/IMPS · AEPS</p>
+                <p className="mt-1 text-[11px] text-slate-500">99.4% Instant Gateway Settlement</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-[#F5F7FA] p-4">
+                <span className="text-[10px] font-bold uppercase text-slate-500">3. Subjective Status</span>
+                <p className="mt-1 text-sm font-bold text-emerald-700">Healthy Operation</p>
+                <p className="mt-1 text-[11px] text-slate-500">Zero active freeze alerts in circle</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB: PAYMENT CHECK (PDF Page 1 Section 4)                      */}
+      {/* ============================================================== */}
+      {activeTab === "payment-check" && (
+        <div className="space-y-6 max-w-4xl">
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+            <div className="border-b border-[#E2E8F0] pb-4">
+              <span className="text-[10px] font-bold text-teal uppercase">PDF Page 1 Section 4</span>
+              <h2 className="text-sm font-bold text-[#101C32]">Payment Check & UTR Verification Radar</h2>
+              <p className="text-xs text-[#64748B] mt-0.5">
+                Instant inquiry and bank confirmation check for downstream Area Distributors and Retailers.
+              </p>
+            </div>
+
+            <div className="mt-5 space-y-4 text-xs">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter Bank Reference Number, TxID, or UTR..."
+                  defaultValue="UTR-20261019-994821"
+                  className="flex-1 rounded-xl border border-slate-300 p-2.5 text-xs font-mono font-semibold text-navy outline-none focus:border-teal"
+                />
+                <button
+                  type="button"
+                  onClick={() => alert("Payment Verified: Status SUCCESS · UTR Confirmed by Axis Core.")}
+                  className="rounded-xl bg-[#101C32] px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#1a2d52] transition"
+                >
+                  Check Payment
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                <span className="text-[10px] font-bold uppercase text-emerald-800">Verified Payment State</span>
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px] text-navy">
+                  <div>Status: <strong className="text-emerald-700">SUCCESS ✓</strong></div>
+                  <div>Amount: <strong>₹25,000.00</strong></div>
+                  <div>Bank: <strong>Axis Core</strong></div>
+                  <div>Mode: <strong>IMPS</strong></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

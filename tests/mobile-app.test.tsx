@@ -11,16 +11,16 @@ import { EmptyState } from "../mobile/src/components/EmptyState";
 import { Button } from "../mobile/src/components/Button";
 import { OnboardingScreen } from "../mobile/src/screens/OnboardingScreen";
 import { AuthScreen } from "../mobile/src/screens/AuthScreen";
-import { CartCheckoutScreen } from "../mobile/src/screens/CartCheckoutScreen";
+import { ServiceStatusScreen } from "../mobile/src/screens/ServiceStatusScreen";
 
 const ReceiptViewComp: any = ReceiptView;
 const EmptyStateComp: any = EmptyState;
 const ButtonComp: any = Button;
 const OnboardingScreenComp: any = OnboardingScreen;
 const AuthScreenComp: any = AuthScreen;
-const CartCheckoutScreenComp: any = CartCheckoutScreen;
+const ServiceStatusScreenComp: any = ServiceStatusScreen;
 
-describe("BuyMeCart Mobile Ecosystem Suite (Android & iOS)", () => {
+describe("IBNK Mobile Banking Suite (Android & iOS)", () => {
   beforeEach(async () => {
     cleanup();
     await secureStorage.clearTokens();
@@ -157,8 +157,8 @@ describe("BuyMeCart Mobile Ecosystem Suite (Android & iOS)", () => {
         />
       );
 
-      expect(screen.getByText("BUYMECART + IBNK ECOSYSTEM")).toBeTruthy();
-      expect(screen.getByText(/Omnichannel Retail & E-Commerce/i)).toBeTruthy();
+      expect(screen.getByText("IBNK BANKING ECOSYSTEM")).toBeTruthy();
+      expect(screen.getByText(/Four Role-Based Portals/i)).toBeTruthy();
       expect(screen.getByText(/IBNK Financial Switching/i)).toBeTruthy();
       expect(screen.getByText(/Self-Hosted AI & Maker-Checker Risk/i)).toBeTruthy();
 
@@ -189,60 +189,19 @@ describe("BuyMeCart Mobile Ecosystem Suite (Android & iOS)", () => {
       });
     });
 
-    it("renders CartCheckoutScreen with zero dummy data empty state when cart is empty", () => {
-      const onShop = vi.fn();
-      render(
-        <CartCheckoutScreenComp
-          cartItems={[]}
-          onUpdateQuantity={vi.fn()}
-          onRemoveItem={vi.fn()}
-          onOrderPlaced={vi.fn()}
-          onContinueShopping={onShop}
-        />
-      );
+    it("renders ServiceStatusScreen with upstream financial switches and latency indicators", () => {
+      const onBack = vi.fn();
+      render(<ServiceStatusScreenComp onBack={onBack} />);
 
-      expect(screen.getByText("Your shopping cart is empty")).toBeTruthy();
-      const exploreBtn = screen.getByRole("button", { name: "Explore Catalog" });
-      fireEvent.click(exploreBtn);
-      expect(onShop).toHaveBeenCalled();
-    });
+      expect(screen.getByText("Switch Status & Network Health")).toBeTruthy();
+      expect(screen.getByText(/NPCI IMPS Switch/i)).toBeTruthy();
+      expect(screen.getByText(/UIDAI Biometric Auth Switch/i)).toBeTruthy();
+      expect(screen.getByText(/NPCI Bharat BillPay Central Unit/i)).toBeTruthy();
+      expect(screen.getByText(/NPCI UPI Switching Node/i)).toBeTruthy();
 
-    it("calculates statutory Tempered Margin fee and places order when items present", () => {
-      const onOrderPlaced = vi.fn();
-      const sampleProduct: Product = {
-        id: "p-pos-01",
-        sku: "BMC-POS-M2",
-        name: "Micro-ATM Terminal M2",
-        description: "PCI-PTS certified POS",
-        category: "pos_hardware",
-        price: 3000,
-        currency: "INR",
-        stock: 20,
-        images: [],
-        ratings: 4.8,
-        ratingCount: 15,
-        isAvailable: true,
-        temperedMarginEligible: true,
-      };
-
-      render(
-        <CartCheckoutScreenComp
-          cartItems={[{ product: sampleProduct, quantity: 1 }]}
-          onUpdateQuantity={vi.fn()}
-          onRemoveItem={vi.fn()}
-          onOrderPlaced={onOrderPlaced}
-          onContinueShopping={vi.fn()}
-        />
-      );
-
-      expect(screen.getByText("Micro-ATM Terminal M2")).toBeTruthy();
-      expect(screen.getByText(/Tempered Margin Statutory Fee:/i)).toBeTruthy();
-
-      // Proceed to checkout step
-      const checkoutBtn = screen.getByRole("button", { name: /Proceed to Shipping & Payment/i });
-      fireEvent.click(checkoutBtn);
-
-      expect(screen.getByText("Shipping Address (India Delivery)")).toBeTruthy();
+      const backBtn = screen.getByText("← Back to IBNK Overview");
+      fireEvent.click(backBtn);
+      expect(onBack).toHaveBeenCalled();
     });
   });
 

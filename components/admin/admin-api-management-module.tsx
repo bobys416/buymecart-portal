@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Activity,
   AlertCircle,
@@ -69,6 +69,12 @@ interface AdminApiManagementModuleProps {
 
 export function AdminApiManagementModule({ initialTab = "overview" }: AdminApiManagementModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Core Data States
   const [providers, setProviders] = useState<ApiProvider[]>(mockApiProviders);

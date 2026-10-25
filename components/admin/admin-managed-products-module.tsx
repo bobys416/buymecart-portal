@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Banknote,
   CheckCircle2,
@@ -31,6 +31,13 @@ interface AdminManagedProductsModuleProps {
 
 export function AdminManagedProductsModule({ initialTab = "transactions" }: AdminManagedProductsModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [selectedSummary, setSelectedSummary] = useState<ManagedProductSummary | null>(null);
 
   // Search filter states

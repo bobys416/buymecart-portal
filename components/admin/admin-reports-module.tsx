@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Calendar,
   CreditCard,
@@ -23,6 +23,12 @@ interface AdminReportsModuleProps {
 
 export function AdminReportsModule({ initialTab = "account-ledger" }: AdminReportsModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [selectedRMN, setSelectedRMN] = useState<string>("All");
   const [reportSearchQuery, setReportSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState({ start: "2026-10-01", end: "2026-10-19" });

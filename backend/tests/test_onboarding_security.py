@@ -379,6 +379,15 @@ def test_complete_onboarding_lifecycle_review_and_activation(client: TestClient,
     assert res_sub.status_code == status.HTTP_200_OK
     assert res_sub.json()["status"] == "UNDER_REVIEW"
 
+    # Retry after a lost response is idempotent and does not enqueue twice.
+    res_retry = client.post(
+        f"/api/v1/onboarding/{app_id}/submit",
+        headers={"Authorization": f"Bearer {ad1_token}"},
+    )
+    assert res_retry.status_code == status.HTTP_200_OK
+    assert res_retry.json()["id"] == app_id
+    assert db_session.query(OnboardingApplication).filter(OnboardingApplication.id == uuid.UUID(app_id)).one().status == ApplicationStatus.UNDER_REVIEW
+
     # Step 4: Self-review prohibited: AD1 initiated this application, so AD1 cannot review it!
     res_self_rev = client.post(
         f"/api/v1/onboarding/{app_id}/review",
@@ -525,3 +534,45 @@ def test_cross_distributor_isolation_onboarding_queue(client: TestClient, db_ses
         headers={"Authorization": f"Bearer {sd1_token}"},
     )
     assert res_lookup.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_merchant_dossier_uses_scoped_retailer_directory_and_prevents_duplicates(client: TestClient, db_session):
+    ad1_token = get_token(client, "ad.zone1@buymecart.org", "AreaDistPass#2026")
+    admin_token = get_token(client, "admin@buymecart.org", "AdminPass#2026")
+    retailer_1 = db_session.query(User).filter(User.login_id == "retailer.store1@buymecart.org").one()
+    retailer_2 = db_session.query(User).filter(User.login_id == "retailer.west1@buymecart.org").one()
+
+    directory = client.get(
+        "/api/v1/retailers?page=1&page_size=100&status=ACTIVE",
+        headers={"Authorization": f"Bearer {ad1_token}"},
+    )
+    assert directory.status_code == status.HTTP_200_OK
+    assert [item["id"] for item in directory.json()["items"]] == [str(retailer_1.id)]
+
+    payload = {
+        "applicant_role": "RETAILER",
+        "target_merchant_id": str(retailer_1.id),
+        "parent_distributor_id": str(retailer_1.parent_id),
+        "personal": {"full_name": retailer_1.full_name, "rmn": retailer_1.phone, "email": retailer_1.email},
+        "identity": {"pan_number": "ABCDE1234F", "aadhaar_last_four": "9012"},
+        "bank": {
+            "account_holder_name": retailer_1.full_name,
+            "bank_name": "Synthetic Test Bank",
+            "account_number": "123456789012",
+            "ifsc_code": "TEST0001234",
+        },
+    }
+    created = client.post("/api/v1/onboarding", headers={"Authorization": f"Bearer {ad1_token}"}, json=payload)
+    assert created.status_code == status.HTTP_201_CREATED, created.text
+    assert created.json()["target_merchant_id"] == str(retailer_1.id)
+
+    duplicate = client.post("/api/v1/onboarding", headers={"Authorization": f"Bearer {ad1_token}"}, json=payload)
+    assert duplicate.status_code == status.HTTP_409_CONFLICT
+
+    out_of_scope = {**payload, "target_merchant_id": str(retailer_2.id), "parent_distributor_id": str(retailer_2.parent_id)}
+    forbidden = client.post("/api/v1/onboarding", headers={"Authorization": f"Bearer {ad1_token}"}, json=out_of_scope)
+    assert forbidden.status_code == status.HTTP_404_NOT_FOUND
+
+    wrong_parent = {**payload, "parent_distributor_id": str(retailer_2.parent_id)}
+    rejected = client.post("/api/v1/onboarding", headers={"Authorization": f"Bearer {admin_token}"}, json=wrong_parent)
+    assert rejected.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

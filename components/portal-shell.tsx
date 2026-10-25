@@ -26,7 +26,9 @@ import {
   Network,
   PackageCheck,
   Receipt,
+  RefreshCcw,
   Search,
+  Send,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -223,13 +225,18 @@ const adminNavigation: MenuItem[] = [
       { label: "7. Privileged Approvals", tab: "approvals" },
       { label: "8. AI Policies & Permissions", tab: "policies" },
       { label: "9. AI Audit & Observability", tab: "audit-logs" },
+      { label: "10. Machine Learning & Models", tab: "ml-models" },
     ],
   },
 ];
 
-// 2. SUPER DISTRIBUTOR NAVIGATION
+// 2. SUPER DISTRIBUTOR NAVIGATION (PDF Pages 1 & 2)
 const superDistributorNavigation: MenuItem[] = [
   { title: "Dashboard", slug: "dashboard", icon: Gauge },
+  { title: "Payment Request", slug: "payment-request", icon: Landmark },
+  { title: "Payment Reversal", slug: "payment-reversal", icon: RefreshCcw },
+  { title: "Payment Transactions", slug: "transactions", icon: CreditCard },
+  { title: "Payment Check", slug: "payment-check", icon: ShieldCheck },
   { title: "Area Distributors (ADs)", slug: "ad-network", icon: Users },
   { title: "Subordinate Retailers", slug: "retailers", icon: Building2 },
   { title: "Clear Balance Queries", slug: "balance-queries", icon: Wallet },
@@ -237,10 +244,15 @@ const superDistributorNavigation: MenuItem[] = [
   { title: "Regional Commercials", slug: "commercials", icon: Zap },
 ];
 
-// 3. AREA DISTRIBUTOR NAVIGATION
+// 3. AREA DISTRIBUTOR NAVIGATION (PDF Pages 1 & 2)
 const areaDistributorNavigation: MenuItem[] = [
   { title: "Dashboard", slug: "dashboard", icon: Gauge },
+  { title: "Payment Request", slug: "payment-request", icon: Landmark },
+  { title: "Payment Reversal", slug: "payment-reversal", icon: RefreshCcw },
+  { title: "Payment Transactions", slug: "transactions", icon: CreditCard },
+  { title: "Payment Check", slug: "payment-check", icon: ShieldCheck },
   { title: "Retailer Onboarding", slug: "onboarding", icon: Users },
+  { title: "Send for Admin Approval", slug: "approval-requests", icon: Send },
   { title: "Process KYC & vKYC", slug: "kyc-flow", icon: Video },
   { title: "Retailer Kit Handovers", slug: "kits", icon: PackageCheck },
   { title: "Retailer Network", slug: "network", icon: MapPin },
@@ -776,7 +788,7 @@ export function PortalShell({
                 const Icon = item.icon;
                 const hasSub = item.submenus && item.submenus.length > 0;
                 const isSectionActive = pathname.startsWith(`/${portal}/${item.slug}`);
-                const isOpen = openDropdowns[item.slug] ?? isSectionActive;
+                const isOpen = isSectionActive || Boolean(openDropdowns[item.slug]);
 
                 if (!hasSub) {
                   return (

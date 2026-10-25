@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.gitignore
+backend
+storage
+*.log
+.env.local
+.expo
+mobile/node_modules
+dist
+build

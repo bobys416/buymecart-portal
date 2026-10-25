@@ -19,11 +19,9 @@ import {
   ShieldCheck,
   ToggleLeft,
   ToggleRight,
-  Upload,
   UserCheck,
   UserPlus,
   Users,
-  Video,
   X,
 } from "lucide-react";
 import { formatINR, mockKycCases, mockMerchants } from "@/lib/mock-data";
@@ -36,6 +34,13 @@ interface AdminMerchantModuleProps {
 
 export function AdminMerchantModule({ initialTab = "search" }: AdminMerchantModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [merchants, setMerchants] = useState<Merchant[]>(mockMerchants);
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
   const [vkycCase, setVkycCase] = useState<KYCCase | null>(null);

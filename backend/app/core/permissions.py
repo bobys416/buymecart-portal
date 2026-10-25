@@ -5,6 +5,7 @@ from app.models.user import UserRole
 
 class Permission(str, enum.Enum):
     VIEW_USERS = "VIEW_USERS"
+    CREATE_USER = "CREATE_USER"
     CREATE_ONBOARDING = "CREATE_ONBOARDING"
     REVIEW_ONBOARDING = "REVIEW_ONBOARDING"
     CHANGE_ACCOUNT_STATUS = "CHANGE_ACCOUNT_STATUS"
@@ -23,6 +24,7 @@ class Permission(str, enum.Enum):
 ROLE_PERMISSIONS: dict[UserRole, Set[Permission]] = {
     UserRole.ADMIN: {
         Permission.VIEW_USERS,
+        Permission.CREATE_USER,
         Permission.CREATE_ONBOARDING,
         Permission.REVIEW_ONBOARDING,
         Permission.CHANGE_ACCOUNT_STATUS,
@@ -38,6 +40,7 @@ ROLE_PERMISSIONS: dict[UserRole, Set[Permission]] = {
     },
     UserRole.SUPER_DISTRIBUTOR: {
         Permission.VIEW_USERS,
+        Permission.CREATE_USER,
         Permission.CREATE_ONBOARDING,
         Permission.REVIEW_ONBOARDING,
         Permission.MODIFY_PROFILES,
@@ -47,6 +50,7 @@ ROLE_PERMISSIONS: dict[UserRole, Set[Permission]] = {
     },
     UserRole.AREA_DISTRIBUTOR: {
         Permission.VIEW_USERS,
+        Permission.CREATE_USER,
         Permission.CREATE_ONBOARDING,
         Permission.MODIFY_PROFILES,
         Permission.ACCESS_REPORTS,

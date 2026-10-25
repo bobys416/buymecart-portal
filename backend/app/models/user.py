@@ -41,6 +41,11 @@ class User(Base):
         index=True,
         nullable=False,
     )
+    # Email and phone verification flags
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # MFA enrollment flag (e.g., Microsoft Authenticator)
+    mfa_enrolled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email: Mapped[Optional[str]] = mapped_column(
         String(255),
         index=True,
@@ -86,6 +91,8 @@ class User(Base):
         nullable=True,
         index=True,
     )
+    # Account lockout after too many failed login attempts
+    MAX_FAILED_ATTEMPTS: int = 5  # configurable threshold
 
     # Security & Audit metadata
     failed_login_attempts: Mapped[int] = mapped_column(

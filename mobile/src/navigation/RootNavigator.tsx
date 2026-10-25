@@ -87,7 +87,7 @@ export const RootNavigator: React.FC = () => {
       <View style={styles.splashContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#101C32" />
         <View style={styles.splashBadge}>
-          <Text style={styles.splashBadgeText}>BUYMECART · IBNK</Text>
+          <Text style={styles.splashBadgeText}>IBNK BANKING</Text>
         </View>
         <ActivityIndicator size="large" color={theme.colors.teal} />
         <Text style={styles.splashText}>Restoring Secure Hardware Session...</Text>

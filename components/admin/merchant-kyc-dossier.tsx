@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Loader2, Video } from "lucide-react";
 import { ApiClientError, apiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
@@ -190,9 +190,11 @@ export function MerchantKycDossier() {
     if (!application || !token) return;
     setError("");
     setNotice("");
-    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
+    const previewUrl = file.type.startsWith("image/") && typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+      ? URL.createObjectURL(file)
+      : "";
     setPreviews((existing) => {
-      if (existing[doc.id]) URL.revokeObjectURL(existing[doc.id]);
+      if (existing[doc.id] && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(existing[doc.id]);
       return { ...existing, [doc.id]: previewUrl };
     });
     setUploadingId(doc.id);

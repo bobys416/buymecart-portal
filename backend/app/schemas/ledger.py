@@ -129,3 +129,75 @@ class WebhookPayload(BaseModel):
     provider_transaction_id: str
     status: str  # "SUCCESS", "FAILED"
     amount: Optional[Decimal] = None
+
+
+# ---------------------------------------------------------
+# Phase 6: Production Ledger & Reconciliation Hardening Schemas
+# ---------------------------------------------------------
+
+class TrialBalanceResponse(BaseModel):
+    total_debit: Decimal
+    total_credit: Decimal
+    imbalance_delta: Decimal
+    is_mathematically_balanced: bool
+    total_journal_entries: int
+    total_postings: int
+    assets_inr: Decimal
+    liabilities_inr: Decimal
+    equity_and_revenue_inr: Decimal
+    verified_at: str
+
+
+class AccountIntegrityResponse(BaseModel):
+    account_id: uuid.UUID
+    account_number: str
+    account_type: AccountType
+    recorded_balance: Decimal
+    calculated_balance: Decimal
+    difference: Decimal
+    is_integrity_valid: bool
+    total_postings_audited: int
+    last_posting_at: Optional[datetime] = None
+
+
+class SettlementBatchItem(BaseModel):
+    provider_transaction_id: str
+    amount: Decimal = Field(..., gt=Decimal("0.00"))
+    status: str = Field(..., description="Provider settlement status: SUCCESS, FAILED")
+    transaction_reference: Optional[str] = None
+
+
+class SettlementBatchReconcileRequest(BaseModel):
+    batch_id: str = Field(..., min_length=4, max_length=64, description="Unique settlement batch ID (e.g. BATCH-2026-10-22-01)")
+    settlement_items: List[SettlementBatchItem]
+
+
+class SettlementDiscrepancyItem(BaseModel):
+    provider_transaction_id: str
+    discrepancy_type: str
+    platform_status: Optional[str] = None
+    provider_status: str
+    expected_amount: Optional[Decimal] = None
+    settled_amount: Optional[Decimal] = None
+    details: str
+
+
+class SettlementBatchReconcileResponse(BaseModel):
+    batch_id: str
+    total_processed: int
+    matched_count: int
+    discrepancy_count: int
+    discrepancies: List[SettlementDiscrepancyItem]
+    reconciled_at: str
+
+
+class DatabaseHealthResponse(BaseModel):
+    status: str
+    dialect: str
+    is_sqlite: bool
+    pool_size: int
+    checked_in_connections: int
+    checked_out_connections: int
+    overflow_connections: int
+    query_latency_ms: float
+    database_target: str

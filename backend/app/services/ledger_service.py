@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 from app.models.ledger import (
     AccountType,
@@ -12,7 +12,16 @@ from app.models.ledger import (
     FundsReservation,
     JournalEntry,
     LedgerPosting,
+    ProviderReconciliationRecord,
     Transaction,
+    TransactionState,
+)
+from app.schemas.ledger import (
+    AccountIntegrityResponse,
+    SettlementBatchItem,
+    SettlementBatchReconcileResponse,
+    SettlementDiscrepancyItem,
+    TrialBalanceResponse,
 )
 
 
@@ -270,3 +279,235 @@ class LedgerService:
             "is_balanced": is_consistent,
             "discrepancy": abs(account.current_balance - calc_balance),
         }
+
+    # ==============================================================================
+    # Phase 6: Production Ledger Invariants & Reconciliation Hardening
+    # ==============================================================================
+
+    @classmethod
+    def verify_trial_balance(cls, db: Session) -> TrialBalanceResponse:
+        """
+        Executes real-time double-entry trial balance mathematical verification:
+        Assures the fundamental ledger invariant: Sum(Debit) == Sum(Credit) across all journal entries.
+        Calculates platform assets, customer liabilities (wallets), and platform equity/commission.
+        """
+        total_debit = db.scalar(
+            select(func.coalesce(func.sum(LedgerPosting.amount), Decimal("0.0000")))
+            .where(LedgerPosting.direction == EntryDirection.DEBIT)
+        ) or Decimal("0.0000")
+
+        total_credit = db.scalar(
+            select(func.coalesce(func.sum(LedgerPosting.amount), Decimal("0.0000")))
+            .where(LedgerPosting.direction == EntryDirection.CREDIT)
+        ) or Decimal("0.0000")
+
+        total_journals = db.scalar(select(func.count(JournalEntry.id))) or 0
+        total_postings = db.scalar(select(func.count(LedgerPosting.id))) or 0
+
+        # Account Category Balances
+        accounts = list(db.scalars(select(FinancialAccount)).all())
+        assets = Decimal("0.0000")
+        liabilities = Decimal("0.0000")
+        equity_rev = Decimal("0.0000")
+
+        for acc in accounts:
+            if acc.account_type in (AccountType.PLATFORM_CASH, AccountType.GATEWAY_CLEARING):
+                assets += acc.current_balance
+            elif acc.account_type in (AccountType.MERCHANT_WALLET, AccountType.FUNDS_RESERVED_ESCROW, AccountType.REFUND_CLEARING):
+                liabilities += acc.current_balance
+            elif acc.account_type == AccountType.PLATFORM_COMMISSION:
+                equity_rev += acc.current_balance
+
+        imbalance_delta = abs(total_debit - total_credit)
+        is_balanced = (imbalance_delta <= Decimal("0.0001"))
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        return TrialBalanceResponse(
+            total_debit=total_debit,
+            total_credit=total_credit,
+            imbalance_delta=imbalance_delta,
+            is_mathematically_balanced=is_balanced,
+            total_journal_entries=total_journals,
+            total_postings=total_postings,
+            assets_inr=assets,
+            liabilities_inr=liabilities,
+            equity_and_revenue_inr=equity_rev,
+            verified_at=now_iso,
+        )
+
+    @classmethod
+    def audit_account_ledger_integrity(cls, db: Session, account_id: Any) -> AccountIntegrityResponse:
+        """
+        Audits an individual financial account:
+        Recomputes balance from every individual historic posting and confirms zero drift.
+        """
+        account = db.scalar(select(FinancialAccount).where(FinancialAccount.id == account_id))
+        if not account:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Financial account not found.")
+
+        recon = cls.reconcile_account_balance(db, account.id)
+        postings_count = db.scalar(
+            select(func.count(LedgerPosting.id)).where(LedgerPosting.account_id == account.id)
+        ) or 0
+
+        last_posting_date = db.scalar(
+            select(func.max(LedgerPosting.created_at)).where(LedgerPosting.account_id == account.id)
+        )
+
+        return AccountIntegrityResponse(
+            account_id=account.id,
+            account_number=account.account_number,
+            account_type=account.account_type,
+            recorded_balance=recon["projected_balance"],
+            calculated_balance=recon["calculated_balance"],
+            difference=recon["discrepancy"],
+            is_integrity_valid=recon["is_balanced"],
+            total_postings_audited=postings_count,
+            last_posting_at=last_posting_date,
+        )
+
+    @classmethod
+    def reconcile_external_settlement_stream(
+        cls,
+        db: Session,
+        batch_id: str,
+        settlement_items: List[SettlementBatchItem],
+    ) -> SettlementBatchReconcileResponse:
+        """
+        Automates multi-rail bank settlement batch reconciliation:
+        Detects MATCHED, AMOUNT_MISMATCH, STATUS_MISMATCH, and MISSING_ON_PLATFORM.
+        Records immutable audit rows in provider_reconciliation_records.
+        """
+        now = datetime.now(timezone.utc)
+        discrepancies: List[SettlementDiscrepancyItem] = []
+        matched_count = 0
+
+        for item in settlement_items:
+            # Look up transaction by provider transaction id or reference
+            stmt = select(Transaction).where(
+                or_(
+                    Transaction.provider_transaction_id == item.provider_transaction_id,
+                    Transaction.transaction_reference == (item.transaction_reference or "NO_REF_MATCH"),
+                )
+            )
+            txn = db.scalar(stmt)
+
+            if not txn:
+                # Discrepancy: Missing on platform
+                disc = SettlementDiscrepancyItem(
+                    provider_transaction_id=item.provider_transaction_id,
+                    discrepancy_type="MISSING_ON_PLATFORM",
+                    platform_status=None,
+                    provider_status=item.status,
+                    expected_amount=None,
+                    settled_amount=item.amount,
+                    details=f"Provider settled ₹{item.amount} but transaction does not exist in platform ledger.",
+                )
+                discrepancies.append(disc)
+
+                rec = ProviderReconciliationRecord(
+                    reconciliation_batch_id=batch_id,
+                    transaction_id=None,
+                    provider_transaction_id=item.provider_transaction_id,
+                    provider_status=item.status,
+                    platform_status=None,
+                    discrepancy_detected=True,
+                    discrepancy_type="MISSING_ON_PLATFORM",
+                    settled_amount=item.amount,
+                    discrepancy_details=disc.details,
+                    reconciled_at=now,
+                )
+                db.add(rec)
+                continue
+
+            # Compare amounts
+            amount_diff = abs(txn.amount - item.amount)
+            if amount_diff > Decimal("0.0001"):
+                disc = SettlementDiscrepancyItem(
+                    provider_transaction_id=item.provider_transaction_id,
+                    discrepancy_type="AMOUNT_MISMATCH",
+                    platform_status=txn.state.value,
+                    provider_status=item.status,
+                    expected_amount=txn.amount,
+                    settled_amount=item.amount,
+                    details=f"Amount mismatch: Platform expected ₹{txn.amount}, Provider settled ₹{item.amount}.",
+                )
+                discrepancies.append(disc)
+
+                rec = ProviderReconciliationRecord(
+                    reconciliation_batch_id=batch_id,
+                    transaction_id=txn.id,
+                    provider_transaction_id=item.provider_transaction_id,
+                    provider_status=item.status,
+                    platform_status=txn.state.value,
+                    discrepancy_detected=True,
+                    discrepancy_type="AMOUNT_MISMATCH",
+                    expected_amount=txn.amount,
+                    settled_amount=item.amount,
+                    discrepancy_details=disc.details,
+                    reconciled_at=now,
+                )
+                db.add(rec)
+                continue
+
+            # Compare statuses
+            status_match = (
+                (item.status == "SUCCESS" and txn.state == TransactionState.SUCCESS)
+                or (item.status == "FAILED" and txn.state in (TransactionState.FAILED, TransactionState.REVERSED))
+            )
+
+            if not status_match:
+                disc = SettlementDiscrepancyItem(
+                    provider_transaction_id=item.provider_transaction_id,
+                    discrepancy_type="STATUS_MISMATCH",
+                    platform_status=txn.state.value,
+                    provider_status=item.status,
+                    expected_amount=txn.amount,
+                    settled_amount=item.amount,
+                    details=f"Status conflict: Platform has '{txn.state.value}', Provider reported '{item.status}'.",
+                )
+                discrepancies.append(disc)
+
+                rec = ProviderReconciliationRecord(
+                    reconciliation_batch_id=batch_id,
+                    transaction_id=txn.id,
+                    provider_transaction_id=item.provider_transaction_id,
+                    provider_status=item.status,
+                    platform_status=txn.state.value,
+                    discrepancy_detected=True,
+                    discrepancy_type="STATUS_MISMATCH",
+                    expected_amount=txn.amount,
+                    settled_amount=item.amount,
+                    discrepancy_details=disc.details,
+                    reconciled_at=now,
+                )
+                db.add(rec)
+                continue
+
+            # Matched cleanly
+            matched_count += 1
+            rec = ProviderReconciliationRecord(
+                reconciliation_batch_id=batch_id,
+                transaction_id=txn.id,
+                provider_transaction_id=item.provider_transaction_id,
+                provider_status=item.status,
+                platform_status=txn.state.value,
+                discrepancy_detected=False,
+                expected_amount=txn.amount,
+                settled_amount=item.amount,
+                resolved=True,
+                resolution_notes="Auto-reconciled clean match.",
+                reconciled_at=now,
+            )
+            db.add(rec)
+
+        db.commit()
+
+        return SettlementBatchReconcileResponse(
+            batch_id=batch_id,
+            total_processed=len(settlement_items),
+            matched_count=matched_count,
+            discrepancy_count=len(discrepancies),
+            discrepancies=discrepancies,
+            reconciled_at=now.isoformat(),
+        )

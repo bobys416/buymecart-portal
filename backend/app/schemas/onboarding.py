@@ -458,3 +458,103 @@ class OnboardingApplicationResponse(BaseModel):
 class PaginatedOnboardingResponse(BaseModel):
     items: List[OnboardingApplicationResponse]
     meta: PaginationMeta
+
+
+# ---------------------------------------------------------
+# Phase 5: Statutory Verification & Compliance Dossier Schemas
+# ---------------------------------------------------------
+
+class PanVerificationRequest(BaseModel):
+    pan_number: Optional[str] = Field(None, description="Optional override PAN number; if omitted, uses application profile PAN.")
+
+
+class PanVerificationResponse(BaseModel):
+    pan_number: str
+    entity_type: str = Field(..., description="Individual, Firm, Company, Trust, etc.")
+    format_valid: bool
+    name_matched: bool
+    pan_verified: bool
+    message: str
+    verified_at: str
+
+
+class AadhaarVerificationRequest(BaseModel):
+    aadhaar_last_four: Optional[str] = Field(None, description="Optional override last 4 digits; if omitted, uses profile.")
+    consent_given: bool = Field(True, description="Explicit consent for UIDAI offline XML verification.")
+    consent_text_version: str = Field("UIDAI-OFFLINE-CONSENT-v2.1", description="Version of consent disclosure accepted.")
+
+
+class AadhaarVerificationResponse(BaseModel):
+    aadhaar_last_four: str
+    format_valid: bool
+    aadhaar_verified: bool
+    consent_record_id: uuid.UUID
+    message: str
+    verified_at: str
+
+
+class BankVerificationRequest(BaseModel):
+    account_number: Optional[str] = Field(None, description="Optional override account number")
+    ifsc_code: Optional[str] = Field(None, description="Optional override IFSC code")
+
+
+class BankVerificationResponse(BaseModel):
+    bank_name: str
+    account_masked: str
+    ifsc_code: str
+    penny_drop_reference: str
+    verification_status: BankVerificationStatus
+    verified: bool
+    message: str
+    verified_at: str
+
+
+class DossierDocumentRecord(BaseModel):
+    document_type: KycDocumentType
+    label: str
+    status: DocumentVerificationStatus
+    file_size_bytes: Optional[int]
+    mime_type: Optional[str]
+    sha256_checksum: Optional[str]
+    uploaded_at: Optional[datetime]
+    verified_at: Optional[datetime]
+    reviewer_remarks: Optional[str]
+
+
+class DossierReviewRecord(BaseModel):
+    reviewer_name: Optional[str]
+    reviewer_role: Optional[str]
+    action: ReviewAction
+    remarks: Optional[str]
+    timestamp: datetime
+
+
+class ComplianceDossierResponse(BaseModel):
+    application_id: uuid.UUID
+    application_number: str
+    applicant_role: UserRole
+    status: ApplicationStatus
+    territory: str
+    applicant_name: str
+    applicant_email: str
+    applicant_mobile: str
+    business_name: Optional[str]
+    business_type: Optional[str]
+    pan_number: Optional[str]
+    pan_verified: bool
+    aadhaar_last_four: Optional[str]
+    aadhaar_verified: bool
+    bank_account_masked: Optional[str]
+    bank_ifsc: Optional[str]
+    bank_verified: bool
+    penny_drop_reference: Optional[str]
+    vkyc_status: Optional[str]
+    vkyc_duration_seconds: Optional[int]
+    initiator_id: Optional[uuid.UUID]
+    parent_distributor_id: Optional[uuid.UUID]
+    parent_distributor_name: Optional[str]
+    documents: List[DossierDocumentRecord]
+    review_trail: List[DossierReviewRecord]
+    regulatory_framework: str = "RBI Master Direction - KYC (Updated 2026) / PMLA Rule 9"
+    dossier_sha256_fingerprint: str
+    generated_at: str

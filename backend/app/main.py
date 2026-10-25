@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.api import ai, auth, banking_api, health, ledger, network, onboarding, providers
+from app.api import ai, auth, banking_api, health, ledger, mfa, ml, network, onboarding, providers
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine, SessionLocal
@@ -63,12 +63,14 @@ app.include_router(health.router)
 
 # Versioned API Routes (/api/v1)
 app.include_router(auth.router, prefix=settings.API_V1_STR)
+app.include_router(mfa.router, prefix=settings.API_V1_STR)
 app.include_router(network.router, prefix=settings.API_V1_STR)
 app.include_router(onboarding.router, prefix=settings.API_V1_STR)
 app.include_router(ledger.router, prefix=settings.API_V1_STR)
 app.include_router(providers.router, prefix=settings.API_V1_STR)
 app.include_router(banking_api.router, prefix=settings.API_V1_STR)
 app.include_router(ai.router, prefix=settings.API_V1_STR)
+app.include_router(ml.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/", tags=["Root"])

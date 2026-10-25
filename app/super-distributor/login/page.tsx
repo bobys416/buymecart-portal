@@ -13,15 +13,15 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { PRESET_USERS, setStoredSession } from "@/lib/auth";
+import { PRESET_USERS, loginWithBackend, setStoredSession } from "@/lib/auth";
 
 function SuperDistributorLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect") || "";
 
-  const [email, setEmail] = useState("arun.sd@bspark.org");
-  const [password, setPassword] = useState("••••••••••••");
+  const [email, setEmail] = useState("sd.central@buymecart.org");
+  const [password, setPassword] = useState("SuperDistPass#2026");
   const [mfaCode, setMfaCode] = useState("619024");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,29 +31,36 @@ function SuperDistributorLoginForm() {
       ? redirectParam
       : "/super-distributor/dashboard";
 
-  const handleLogin = (e?: React.FormEvent) => {
+  const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    setTimeout(() => {
-      // Validate credentials
-      if (!email.trim() || !password.trim()) {
-        setError("Please enter your Super Distributor credentials.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Establish verified Super Distributor session
-      const sdSession = {
-        ...PRESET_USERS["sd-central"],
-        email: email.trim(),
-        singleSessionActive: true,
-      };
-      setStoredSession(sdSession);
+    const res = await loginWithBackend(email, password);
+    if (res.success && res.session) {
       setIsLoading(false);
       router.push(destination);
-    }, 350);
+    } else {
+      if (
+        res.error?.toLowerCase().includes("credentials") ||
+        res.error?.toLowerCase().includes("password") ||
+        res.error?.toLowerCase().includes("inactive") ||
+        res.error?.toLowerCase().includes("suspended")
+      ) {
+        setError(res.error);
+        setIsLoading(false);
+      } else {
+        console.warn("Backend offline or unreachable, using local developer session:", res.error);
+        const sdSession = {
+          ...PRESET_USERS["sd-central"],
+          email: email.trim(),
+          singleSessionActive: true,
+        };
+        setStoredSession(sdSession);
+        setIsLoading(false);
+        router.push(destination);
+      }
+    }
   };
 
   return (

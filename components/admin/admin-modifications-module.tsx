@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertCircle,
   Bell,
@@ -30,6 +30,12 @@ interface AdminModificationsModuleProps {
 
 export function AdminModificationsModule({ initialTab = "commercial" }: AdminModificationsModuleProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // 1. Mobile Number Modification State (Page 5: Modify Mobile Number RMN / New AD RMN)
   const [mobileForm, setMobileForm] = useState({

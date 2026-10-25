@@ -32,10 +32,22 @@ class Settings(BaseSettings):
         "exp://localhost:8081",
     ]
 
-    # Database URLs
+    # Database URLs & PostgreSQL Production Configuration
     # Supports SQLite for dev/test and PostgreSQL/Supabase for production
     DATABASE_URL: str = "sqlite:///./buymecart_dev.db"
     TEST_DATABASE_URL: str = "sqlite:///./buymecart_test.db"
+
+    # PostgreSQL Connection Pooling & Production Settings
+    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_DB: str = "buymecart"
+    POSTGRES_SSLMODE: str = "prefer"
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_RECYCLE: int = 1800  # Recycle connections after 30 mins
+    DB_POOL_TIMEOUT: int = 30    # 30-sec acquisition timeout
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 30
@@ -67,6 +79,37 @@ class Settings(BaseSettings):
     MIN_RTGS_AMOUNT: float = 200000.0
     MAX_RTGS_AMOUNT: float = 10000000.0
 
+    # ── Microsoft Entra ID (OIDC) ──
+    AZURE_TENANT_ID: str = ""  # e.g. "12345678-abcd-..."
+    AZURE_CLIENT_ID: str = ""  # App registration client ID
+    AZURE_CLIENT_SECRET: str = ""  # App registration client secret
+    AZURE_REDIRECT_URI: str = "http://localhost:3000/auth/callback"  # Frontend callback
+    AZURE_AUTHORITY: str = ""  # Auto-built from tenant ID in property below
+
+    # ── OTP / MFA Configuration ──
+    OTP_LENGTH: int = 6
+    OTP_TTL_SECONDS: int = 300  # 5 minutes
+    OTP_RESEND_COOLDOWN_SECONDS: int = 60  # min interval between sends
+    OTP_MAX_ATTEMPTS: int = 5  # per challenge
+    OTP_MAX_ACTIVE_CHALLENGES: int = 3  # per user per channel
+
+    # ── MFA Enforcement ──
+    MFA_REQUIRED_ROLES: List[str] = ["ADMIN", "SUPER_DISTRIBUTOR"]
+
+    # ── Email (SMTP) for OTP delivery ──
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "noreply@buymecart.org"
+    SMTP_USE_TLS: bool = True
+
+    # ── SMS Provider for OTP delivery ──
+    SMS_PROVIDER: str = "console"  # "console" | "twilio" | "msg91"
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""
+
     # Logging
     LOG_LEVEL: str = "INFO"
 
@@ -97,6 +140,15 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"
+
+    @property
+    def azure_authority_url(self) -> str:
+        """Full Microsoft Entra authority URL derived from tenant ID."""
+        if self.AZURE_AUTHORITY:
+            return self.AZURE_AUTHORITY
+        if self.AZURE_TENANT_ID:
+            return f"https://login.microsoftonline.com/{self.AZURE_TENANT_ID}"
+        return ""
 
 
 settings = Settings()

@@ -16,22 +16,21 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.heroSection}>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>BUYMECART + IBNK ECOSYSTEM</Text>
+          <Text style={styles.badgeText}>IBNK BANKING ECOSYSTEM</Text>
         </View>
-        <Text style={styles.title}>Digital Commerce & Unified Financial Services</Text>
+        <Text style={styles.title}>Unified IBNK Banking & Financial Platform</Text>
         <Text style={styles.subtitle}>
-          One multi-platform app for customer shopping, IBNK banking rails (DMT, AEPS, BBPS),
-          and autonomous local AI risk intelligence.
+          Authoritative banking switch for Admins, Super Distributors, Area Distributors, and Retailers.
         </Text>
       </View>
 
       <View style={styles.featuresList}>
         <View style={styles.featureItem}>
-          <Text style={styles.featureIcon}>🛍️</Text>
+          <Text style={styles.featureIcon}>🏛️</Text>
           <View style={styles.featureText}>
-            <Text style={styles.featureTitle}>Omnichannel Retail & E-Commerce</Text>
+            <Text style={styles.featureTitle}>Four Role-Based Portals</Text>
             <Text style={styles.featureDesc}>
-              Procure POS terminals, digital kits, and consumer goods with statutory Tempered Margin pricing.
+              Segregated experiences for Admin, Super Distributor, Area Distributor, and Retailer Desks.
             </Text>
           </View>
         </View>
@@ -51,7 +50,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           <View style={styles.featureText}>
             <Text style={styles.featureTitle}>Self-Hosted AI & Maker-Checker Risk</Text>
             <Text style={styles.featureDesc}>
-              Local open-weight intelligence (Ollama) with privileged dual-signoff authorization. Zero paid API keys.
+              Double-entry financial ledger integrity, automated commissions, and zero open critical defects.
             </Text>
           </View>
         </View>

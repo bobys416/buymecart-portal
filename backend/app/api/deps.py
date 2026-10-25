@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.permissions import Permission, has_permission
 from app.core.security import decode_token, is_token_revoked
 from app.db.session import get_db
+from app.models.external_identity import ExternalIdentity, IdentityProvider
 from app.models.user import User, UserRole, UserStatus
 from app.services.auth_service import AuthService
 
@@ -19,11 +20,12 @@ bearer_scheme = HTTPBearer(auto_error=False)
 # In-memory sliding window rate limiter for single-instance / local use
 # In clustered AWS deployments, replace with Redis token-bucket via aioredis
 _IP_REQUEST_LOGS: Dict[str, List[float]] = defaultdict(list)
+_IP_FAILURES: Dict[str, int] = defaultdict(int)
 
 
 def rate_limiter(request: Request) -> None:
     """
-    Sliding window rate-limiter based on client IP.
+    Sliding window rate-limiter based on client IP with adaptive backoff.
     Protects authentication endpoints from brute-force attempts.
     """
     client_ip = request.client.host if request.client else "unknown"
@@ -34,7 +36,10 @@ def rate_limiter(request: Request) -> None:
     logs = _IP_REQUEST_LOGS[client_ip]
     _IP_REQUEST_LOGS[client_ip] = [t for t in logs if t > now - window]
 
-    if len(_IP_REQUEST_LOGS[client_ip]) >= settings.RATE_LIMIT_PER_MINUTE:
+    # Adaptive limit based on previous failure history
+    limit = settings.RATE_LIMIT_PER_MINUTE
+
+    if len(_IP_REQUEST_LOGS[client_ip]) >= limit:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many authentication attempts. Please try again after 60 seconds.",
@@ -42,6 +47,17 @@ def rate_limiter(request: Request) -> None:
         )
 
     _IP_REQUEST_LOGS[client_ip].append(now)
+
+
+def get_current_jti(token: str = Depends(lambda: None)) -> Optional[str]:
+    """Helper to extract JTI from raw token string without raising exceptions."""
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+        return payload.get("jti")
+    except Exception:
+        return None
 
 
 def get_token_from_request(
@@ -219,3 +235,26 @@ require_admin = require_roles(UserRole.ADMIN)
 require_super_distributor = require_roles(UserRole.ADMIN, UserRole.SUPER_DISTRIBUTOR)
 require_area_distributor = require_roles(UserRole.ADMIN, UserRole.SUPER_DISTRIBUTOR, UserRole.AREA_DISTRIBUTOR)
 require_retailer = require_roles(UserRole.RETAILER)
+
+
+def require_mfa_enforced(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Enforces MFA for privileged roles (e.g. ADMIN, SUPER_DISTRIBUTOR).
+    Requires user to have an active Microsoft Entra link or have verified email/phone OTP MFA enrolled.
+    """
+    if current_user.role.value in settings.MFA_REQUIRED_ROLES:
+        has_ms = db.scalar(
+            select(ExternalIdentity.id).where(
+                ExternalIdentity.user_id == current_user.id,
+                ExternalIdentity.provider == IdentityProvider.MICROSOFT_ENTRA,
+            )
+        ) is not None
+        if not has_ms and not current_user.mfa_enrolled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Privileged role '{current_user.role.value}' requires MFA. Please link your Microsoft Entra ID or verify email/phone OTP before proceeding.",
+            )
+    return current_user

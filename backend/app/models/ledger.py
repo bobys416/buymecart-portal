@@ -675,3 +675,200 @@ class IncomingWebhookEvent(Base):
 
     def __repr__(self) -> str:
         return f"<IncomingWebhookEvent id={self.id} event_id={self.event_id} status={self.status}>"
+
+
+class PaymentRequestStatus(str, enum.Enum):
+    SUBMITTED = "SUBMITTED"
+    PENDING_VERIFICATION = "PENDING_VERIFICATION"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SETTLED = "SETTLED"
+    CANCELLED = "CANCELLED"
+
+
+class PaymentRequest(Base):
+    """
+    Retailer wallet load deposit request.
+    Crucial Financial Rule: Submitting a payment request NEVER credits the retailer wallet directly.
+    Wallet balance is credited ONLY after payment verification, required multi-party approval,
+    and double-entry ledger commit.
+    """
+    __tablename__ = "payment_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+        nullable=False,
+    )
+    request_code: Mapped[str] = mapped_column(
+        String(64),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    bank_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    account_holder: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
+    masked_account: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+    ifsc_code: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+    payment_mode: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+    )
+    amount: Mapped[Decimal] = mapped_column(
+        Numeric(18, 4),
+        nullable=False,
+    )
+    utr_reference: Mapped[str] = mapped_column(
+        String(100),
+        index=True,
+        nullable=False,
+    )
+    remarks: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    status: Mapped[PaymentRequestStatus] = mapped_column(
+        Enum(PaymentRequestStatus, native_enum=False, length=40),
+        default=PaymentRequestStatus.SUBMITTED,
+        nullable=False,
+        index=True,
+    )
+    rejection_reason: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    settlement_status: Mapped[str] = mapped_column(
+        String(50),
+        default="UNSETTLED",
+        nullable=False,
+    )
+    approved_by: Mapped[Optional[str]] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+    approved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User")
+
+    def __repr__(self) -> str:
+        return f"<PaymentRequest code={self.request_code} amount={self.amount} status={self.status.value}>"
+
+
+class TicketCategory(str, enum.Enum):
+    TRANSACTION_RELATED = "TRANSACTION_RELATED"
+    SERVICE_RELATED = "SERVICE_RELATED"
+    PAYMENT_RELATED = "PAYMENT_RELATED"
+    WALLET_DISCREPANCY = "WALLET_DISCREPANCY"
+    KYC_PROFILE = "KYC_PROFILE"
+    TECHNICAL_ISSUE = "TECHNICAL_ISSUE"
+
+
+class TicketStatus(str, enum.Enum):
+    OPEN = "OPEN"
+    IN_PROGRESS = "IN_PROGRESS"
+    RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
+
+
+class SupportTicket(Base):
+    """
+    Help Desk tickets raised by retailers with optional transaction linking.
+    """
+    __tablename__ = "support_tickets"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+        nullable=False,
+    )
+    ticket_number: Mapped[str] = mapped_column(
+        String(64),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[TicketCategory] = mapped_column(
+        Enum(TicketCategory, native_enum=False, length=40),
+        nullable=False,
+        index=True,
+    )
+    transaction_id: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+    subject: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+    description: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[TicketStatus] = mapped_column(
+        Enum(TicketStatus, native_enum=False, length=20),
+        default=TicketStatus.OPEN,
+        nullable=False,
+        index=True,
+    )
+    admin_response: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User")
+
+    def __repr__(self) -> str:
+        return f"<SupportTicket number={self.ticket_number} category={self.category.value} status={self.status.value}>"

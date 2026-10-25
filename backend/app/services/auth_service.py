@@ -40,6 +40,12 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        # Account lockout after too many failed attempts
+        if user.failed_login_attempts >= User.MAX_FAILED_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account locked due to multiple failed login attempts. Contact support.",
+            )
         if not verify_password(password, user.hashed_password):
             user.failed_login_attempts += 1
             db.commit()

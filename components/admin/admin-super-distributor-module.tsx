@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertCircle,
   Building2,
@@ -112,6 +112,13 @@ export function AdminSuperDistributorModule({
   initialTab = "directory",
 }: AdminSuperDistributorModuleProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [superDistributors, setSuperDistributors] = useState<SuperDistributor[]>(
     initialSuperDistributors
   );

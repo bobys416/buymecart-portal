@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "BuyMeCart + IBNK",
-    "slug": "buymecart-mobile",
+    "name": "IBNK Banking",
+    "slug": "ibnk-banking",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "buymecart",
+    "scheme": "ibnk",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
@@ -17,12 +17,12 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "org.buymecart.mobile",
+      "bundleIdentifier": "org.ibnk.banking",
       "infoPlist": {
-        "NSCameraUsageDescription": "BuyMeCart needs camera access to capture KYC documents, applicant selfies, shop photographs, and 30-second Video KYC recordings.",
-        "NSMicrophoneUsageDescription": "BuyMeCart needs microphone access for recording audio and dynamic OTP recitation during 30-second Video KYC onboarding.",
-        "NSPhotoLibraryUsageDescription": "BuyMeCart needs photo library access to upload identity proofs, PAN cards, MSME certificates, and cancelled cheques.",
-        "NSFaceIDUsageDescription": "Use Face ID for rapid and secure authentication to your BuyMeCart + IBNK authorized merchant wallet."
+        "NSCameraUsageDescription": "IBNK Banking needs camera access to capture KYC documents, applicant selfies, shop photographs, and 30-second Video KYC recordings.",
+        "NSMicrophoneUsageDescription": "IBNK Banking needs microphone access for recording audio and dynamic OTP recitation during 30-second Video KYC onboarding.",
+        "NSPhotoLibraryUsageDescription": "IBNK Banking needs photo library access to upload identity proofs, PAN cards, MSME certificates, and cancelled cheques.",
+        "NSFaceIDUsageDescription": "Use Face ID for rapid and secure authentication to your authorized IBNK banking portal."
       }
     },
     "android": {
@@ -30,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#101C32"
       },
-      "package": "org.buymecart.mobile",
+      "package": "org.ibnk.banking",
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
@@ -48,23 +48,23 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow BuyMeCart to access camera for document scanning, merchant selfie capture, and Video KYC."
+          "cameraPermission": "Allow IBNK Banking to access camera for document scanning, merchant selfie capture, and Video KYC."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow BuyMeCart to authenticate using biometric sensors."
+          "faceIDPermission": "Allow IBNK Banking to authenticate using biometric sensors."
         }
       ]
     ],
     "extra": {
-      "apiUrl": "https://api.buymecart.org",
+      "apiUrl": "http://localhost:8000/api/v1",
       "appEnv": "development",
       "supportPhone": "+91 1800 200 4265",
-      "supportEmail": "compliance@buymecart.org",
+      "supportEmail": "compliance@ibnk.org",
       "eas": {
-        "projectId": "buymecart-ibnk-fintech"
+        "projectId": "ibnk-banking-platform"
       }
     }
   }
